@@ -169,7 +169,15 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   async function handleGoogleLogin() {
     const supabase = getBrowserSupabaseClient();
     if (!supabase) { setMessage("ยังไม่ได้ตั้ง Supabase env"); return; }
-    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/app` },
+      });
+      if (error) setMessage(error.message);
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "login ไม่สำเร็จ");
+    }
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -285,6 +293,12 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
             />
             <div className="mt-4 sm:mt-6">
+              {/* Mobile-only toast */}
+              {message && (
+                <p className="mb-3 rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-2 text-[13px] text-[var(--muted)] sm:hidden animate-in">
+                  {message}
+                </p>
+              )}
               {initialView === "dashboard"     && <DashboardView ctx={ctx} />}
               {initialView === "upload"        && <UploadView ctx={ctx} />}
               {initialView === "transactions"  && <TransactionsView ctx={ctx} />}
@@ -397,7 +411,7 @@ function TopBar({ active, message, onLogin, sidebarOpen, onToggleSidebar }: {
       </div>
       <div className="flex items-center gap-1.5 sm:gap-2">
         {message && (
-          <p className="hidden rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-1.5 text-[13px] text-[var(--muted)] md:block">
+          <p className="hidden truncate rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-1.5 text-[13px] text-[var(--muted)] sm:block max-w-[200px]">
             {message}
           </p>
         )}
