@@ -168,7 +168,14 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   }, [loadTransactions]);
 
   async function handleGoogleLogin() {
-    window.location.href = "/auth/login";
+    const supabase = getBrowserSupabaseClient();
+    if (!supabase) return;
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/auth/callback",
+      },
+    });
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
