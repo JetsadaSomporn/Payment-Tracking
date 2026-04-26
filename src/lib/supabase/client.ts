@@ -10,7 +10,12 @@ export function getBrowserSupabaseClient() {
     return null;
   }
 
-  browserClient ??= createClient(url, anonKey);
+  browserClient ??= createClient(url, anonKey, {
+    auth: {
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+  });
 
   return browserClient;
 }

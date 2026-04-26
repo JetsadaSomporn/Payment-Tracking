@@ -15,7 +15,7 @@ export function proxy(request: NextRequest) {
     "worker-src 'self' blob: https://cdn.jsdelivr.net",
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action 'self' https://*.supabase.co https://accounts.google.com`,
     "frame-ancestors 'none'",
   ];
 

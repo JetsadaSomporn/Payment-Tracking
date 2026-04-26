@@ -170,11 +170,15 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     const supabase = getBrowserSupabaseClient();
     if (!supabase) { setMessage("ยังไม่ได้ตั้ง Supabase env"); return; }
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/app` },
       });
-      if (error) setMessage(error.message);
+      if (error) {
+        setMessage(error.message);
+      } else if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (err: unknown) {
       setMessage(err instanceof Error ? err.message : "login ไม่สำเร็จ");
     }
