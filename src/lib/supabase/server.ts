@@ -1,4 +1,6 @@
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
 export type AuthenticatedUser = {
   id: string;
@@ -13,6 +15,31 @@ type AuthResult =
       accessToken: string | null;
     }
   | { ok: false; status: number; error: string };
+
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // ignore — called from Server Component where cookies are read-only
+          }
+        },
+      },
+    },
+  );
+}
 
 export async function requireAuthenticatedUser(
   request: Request,
@@ -29,7 +56,6 @@ export async function requireAuthenticatedUser(
   }
 
   const token = readBearerToken(request);
-
 
   if (!token) {
     return { ok: false, status: 401, error: "unauthorized" };
