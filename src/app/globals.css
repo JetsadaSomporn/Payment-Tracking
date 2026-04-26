@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Safe area padding for mobile bottom nav (iOS notch) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 :root {
   --background: #F5F5F7;
   --foreground: #111111;

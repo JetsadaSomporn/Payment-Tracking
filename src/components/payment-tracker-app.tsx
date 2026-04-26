@@ -267,15 +267,15 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   return (
     <main className="app-canvas min-h-screen text-[var(--foreground)]">
       <div className="flex min-h-screen">
-        {/* Sidebar — slide out when closed */}
+        {/* Sidebar — hidden on mobile, toggle on desktop */}
         <div
-          className="transition-[width,opacity] duration-200 ease-in-out overflow-hidden shrink-0"
+          className="hidden lg:block transition-[width,opacity] duration-200 ease-in-out overflow-hidden shrink-0"
           style={{ width: sidebarOpen ? 224 : 0, opacity: sidebarOpen ? 1 : 0 }}
         >
           <Sidebar active={initialView} ctx={ctx} />
         </div>
 
-        <div className="min-w-0 flex-1 px-5 py-5 sm:px-8 lg:px-10">
+        <div className="min-w-0 flex-1 px-4 py-4 pb-24 sm:px-6 lg:px-10 lg:pb-5">
           <div className="mx-auto max-w-6xl">
             <TopBar
               active={initialView}
@@ -284,7 +284,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
             />
-            <div className="mt-6">
+            <div className="mt-4 sm:mt-6">
               {initialView === "dashboard"     && <DashboardView ctx={ctx} />}
               {initialView === "upload"        && <UploadView ctx={ctx} />}
               {initialView === "transactions"  && <TransactionsView ctx={ctx} />}
@@ -294,6 +294,9 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
           </div>
         </div>
       </div>
+
+      {/* Mobile bottom nav */}
+      <MobileNav active={initialView} />
     </main>
   );
 }
@@ -372,11 +375,11 @@ function TopBar({ active, message, onLogin, sidebarOpen, onToggleSidebar }: {
   };
 
   return (
-    <header className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-3">
-        {/* Sidebar toggle */}
+    <header className="flex items-center justify-between gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Sidebar toggle — desktop only */}
         <button
-          className="icon-button shrink-0"
+          className="icon-button shrink-0 hidden lg:inline-flex"
           onClick={onToggleSidebar}
           title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           type="button"
@@ -387,26 +390,56 @@ function TopBar({ active, message, onLogin, sidebarOpen, onToggleSidebar }: {
           <Link className="text-[11px] font-medium uppercase tracking-widest text-[var(--muted)] hover:text-[var(--foreground)]" href="/">
             Payment Tracker
           </Link>
-          <h2 className="font-display mt-0.5 text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h2 className="font-display mt-0.5 text-xl font-semibold tracking-tight sm:text-3xl">
             {titles[active]}
           </h2>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {message && (
           <p className="hidden rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-1.5 text-[13px] text-[var(--muted)] md:block">
             {message}
           </p>
         )}
-        <button className="icon-button" title="Search" type="button">
+        <button className="icon-button hidden sm:inline-flex" title="Search" type="button">
           <Search size={16} />
         </button>
-        <button className="primary-button" onClick={onLogin} type="button">
+        <button className="primary-button text-[13px] sm:text-sm px-2.5 sm:px-3.5" onClick={onLogin} type="button">
           <LogIn size={15} />
-          Sign in
+          <span className="hidden sm:inline">Sign in</span>
         </button>
       </div>
     </header>
+  );
+}
+
+function MobileNav({ active }: { active: PaymentTrackerView }) {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--line)] bg-[var(--panel)]/95 backdrop-blur-xl lg:hidden safe-bottom-pb">
+      <div className="flex justify-around py-1">
+        {navItems.map((item) => {
+          const isActive = item.view === active;
+          return (
+            <Link
+              key={item.view}
+              href={item.href}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px] font-medium transition-colors rounded-lg ${
+                isActive
+                  ? "text-[var(--foreground)]"
+                  : "text-[var(--muted)]"
+              }`}
+            >
+              <div className={`flex items-center justify-center rounded-lg p-1.5 ${
+                isActive ? "bg-[var(--soft)]" : ""
+              }`}>
+                {item.icon}
+              </div>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -418,7 +451,7 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
 
   return (
     <div className="grid gap-4">
-      <div className="app-hero-panel animate-in overflow-hidden p-7 text-white sm:p-9">
+      <div className="app-hero-panel animate-in overflow-hidden p-5 text-white sm:p-7 lg:p-9">
         <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -472,11 +505,11 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
       </div>
       <PeriodSummaryCards summaries={ctx.periodSummary} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_380px]">
-        <div className="surface animate-in delay-2 p-6">
+        <div className="surface animate-in delay-2 p-5 sm:p-6">
           <SectionHead icon={<ReceiptText size={16} />} title="Recent transactions" href="/transactions" linkLabel="View all" />
           <TxList transactions={ctx.todayTx} compact />
         </div>
-        <div className="surface animate-in delay-3 p-6">
+        <div className="surface animate-in delay-3 p-5 sm:p-6">
           <SectionHead icon={<Sparkles size={16} />} title="Daily brief" />
           <p className="mt-4 text-[14px] leading-relaxed text-[var(--muted)]">
             {ctx.summary.insight}
@@ -496,7 +529,7 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
 function UploadView({ ctx }: { ctx: AppCtx }) {
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<UploadCloud size={16} />} title="Slip intake" />
         <div className="mt-5 flex gap-2">
           {[
@@ -519,7 +552,7 @@ function UploadView({ ctx }: { ctx: AppCtx }) {
           ))}
         </div>
 
-        <label className="upload-stage mt-5 flex min-h-[400px] flex-col items-center justify-center p-6 text-center">
+        <label className="upload-stage mt-5 flex min-h-[250px] flex-col items-center justify-center p-4 sm:p-6 sm:min-h-[400px] text-center">
           {ctx.previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt="Slip preview" className="max-h-[360px] rounded-lg object-contain shadow-md" src={ctx.previewUrl} />
@@ -547,7 +580,7 @@ function UploadView({ ctx }: { ctx: AppCtx }) {
           </button>
         </div>
       </div>
-      <form className="surface p-6" onSubmit={ctx.saveTransaction}>
+      <form className="surface p-5 sm:p-6" onSubmit={ctx.saveTransaction}>
         <SectionHead icon={<CheckCircle2 size={16} />} title="Review & confirm" />
         <SlipFacts slip={ctx.extractedSlip} />
         <ConfWarn slip={ctx.extractedSlip} />
@@ -556,7 +589,7 @@ function UploadView({ ctx }: { ctx: AppCtx }) {
           <Field label="จ่ายอะไรไป">
             <input className="field" onChange={(e) => ctx.setDraft({ ...ctx.draft, title: e.target.value })} placeholder="เช่น ค่าบริการ 123 เซอร์วิส" value={ctx.draft.title} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="จำนวนเงิน (บาท)">
               <input className="field font-figures" inputMode="decimal" onChange={(e) => ctx.setDraft({ ...ctx.draft, amount: e.target.value })} value={ctx.draft.amount} />
             </Field>
@@ -569,7 +602,7 @@ function UploadView({ ctx }: { ctx: AppCtx }) {
               {categories.map((c) => <option key={c}>{c}</option>)}
             </select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="วันที่">
               <input className="field" onChange={(e) => ctx.setDraft({ ...ctx.draft, transactionDate: e.target.value })} type="date" value={ctx.draft.transactionDate} />
             </Field>
@@ -621,7 +654,7 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
         <button className="secondary-button" type="button"><FileDown size={14} />Export</button>
       </div>
 
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<ReceiptText size={16} />} title="Ledger" linkLabel={`${filteredTransactions.length} items`} />
         <TxList transactions={filteredTransactions} />
       </div>
@@ -633,7 +666,7 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
     <section className="grid gap-4">
       <PeriodSummaryCards summaries={ctx.periodSummary} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<PieChart size={16} />} title="Category breakdown" />
         <div className="mt-5 space-y-4">
           {ctx.catTotals.length > 0
@@ -645,7 +678,7 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="surface p-6">
+        <div className="surface p-5 sm:p-6">
           <SectionHead icon={<Sparkles size={16} />} title="AI review" />
           <p className="mt-4 text-[14px] leading-relaxed text-[var(--muted)]">{ctx.summary.insight}</p>
           <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--soft)] p-3.5">
@@ -653,7 +686,7 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
             <p className="mt-1 text-[13px]">Local summary from confirmed transactions only</p>
           </div>
         </div>
-        <div className="surface p-6">
+        <div className="surface p-5 sm:p-6">
           <SectionHead icon={<MessageSquareText size={16} />} title="Money chat" />
           <div className="mt-4 space-y-2">
             {["วันนี้ใช้ไปเท่าไหร่?", "เดือนนี้หมดกับอะไรเยอะสุด?", "ร้านไหนจ่ายบ่อยสุด?"].map((q) => (
@@ -672,14 +705,14 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
 function SettingsView({ ctx }: { ctx: AppCtx }) {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<LockKeyhole size={16} />} title="Account & auth" />
         <StatusRows items={[
           ["Session", ctx.authLabel],
           ["Supabase", ctx.hasSupabase ? "Configured" : "Not configured"],
         ]} />
       </div>
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<ShieldCheck size={16} />} title="Security controls" />
         <StatusRows items={[
           ["RLS", "All tables enabled"],
@@ -688,7 +721,7 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
           ["CSP", "Nonce-based, strict-dynamic"],
         ]} />
       </div>
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<WalletCards size={16} />} title="Ledger preferences" />
         <StatusRows items={[
           ["Currency", "Thai baht"],
@@ -696,7 +729,7 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
           ["Browser cache", "Disabled for financial data"],
         ]} />
       </div>
-      <div className="surface p-6">
+      <div className="surface p-5 sm:p-6">
         <SectionHead icon={<Sparkles size={16} />} title="Interface" />
         <StatusRows items={[
           ["Font", "SF stack + Noto Sans Thai"],
