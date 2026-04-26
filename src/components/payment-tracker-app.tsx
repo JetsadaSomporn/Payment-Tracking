@@ -43,6 +43,7 @@ import { formatTHB, parseAmount, todayBangkokDate } from "@/lib/money";
 import { summarizeToday } from "@/lib/summary";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SlipExtractionResult, Transaction } from "@/lib/types";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 
 export type PaymentTrackerView =
   | "dashboard"
@@ -147,15 +148,15 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     }
 
     window.localStorage.removeItem(localTransactionsKey);
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       if (data.user?.email) setAuthLabel(data.user.email);
     });
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       if (data.session) {
         void loadTransactions();
       }
     });
-    const { data: l } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: l } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, s: Session | null) => {
       setAuthLabel(s?.user.email ?? "ยังไม่ได้ login");
       if (s) {
         void loadTransactions();
