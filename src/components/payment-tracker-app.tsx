@@ -44,6 +44,7 @@ import { summarizeToday } from "@/lib/summary";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SlipExtractionResult, Transaction } from "@/lib/types";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import { SpendingChart } from "./SpendingChart";
 
 export type PaymentTrackerView =
   | "dashboard"
@@ -313,6 +314,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
           <div className="mx-auto max-w-6xl">
             <TopBar
               active={initialView}
+              ctx={ctx}
               message={message}
               onLogin={handleGoogleLogin}
               sidebarOpen={sidebarOpen}
@@ -402,8 +404,9 @@ function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
     </aside>
   );
 }
-function TopBar({ active, message, onLogin, sidebarOpen, onToggleSidebar }: {
+function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }: {
   active: PaymentTrackerView;
+  ctx: AppCtx;
   message: string | null;
   onLogin: () => void;
   sidebarOpen: boolean;
@@ -413,6 +416,11 @@ function TopBar({ active, message, onLogin, sidebarOpen, onToggleSidebar }: {
     dashboard: "Today", upload: "Upload slip",
     transactions: "Transactions", insights: "Insights", settings: "Settings",
   };
+
+  const isAuthenticated = ctx.authLabel !== "Not signed in" && ctx.authLabel !== "ยังไม่ได้ login";
+  const userInitial = isAuthenticated && ctx.authLabel.includes("@") 
+    ? ctx.authLabel.charAt(0).toUpperCase() 
+    : "U";
 
   return (
     <header className="flex items-center justify-between gap-2 sm:gap-4">
@@ -444,10 +452,17 @@ function TopBar({ active, message, onLogin, sidebarOpen, onToggleSidebar }: {
         <button className="icon-button hidden sm:inline-flex" title="Search" type="button">
           <Search size={16} />
         </button>
-        <button className="primary-button text-[13px] sm:text-sm px-2.5 sm:px-3.5" onClick={onLogin} type="button">
-          <LogIn size={15} />
-          <span className="hidden sm:inline">Sign in</span>
-        </button>
+        
+        {isAuthenticated ? (
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)] text-white font-semibold text-sm shadow-sm cursor-pointer ml-1">
+            {userInitial}
+          </div>
+        ) : (
+          <button className="primary-button text-[13px] sm:text-sm px-2.5 sm:px-3.5" onClick={onLogin} type="button">
+            <LogIn size={15} />
+            <span className="hidden sm:inline">Sign in</span>
+          </button>
+        )}
       </div>
     </header>
   );
@@ -491,12 +506,12 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
 
   return (
     <div className="grid gap-4">
-      <div className="app-hero-panel animate-in overflow-hidden p-5 text-white sm:p-7 lg:p-9">
+      <div className="app-hero-panel animate-in overflow-hidden p-5 sm:p-7 lg:p-9">
         <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <CalendarDays size={13} className="text-white/58" />
-              <span className="text-[12px] font-medium text-white/62">Bangkok · {dateStr}</span>
+              <CalendarDays size={13} className="text-[var(--muted)]" />
+              <span className="text-[12px] font-medium text-[var(--muted)]">Bangkok · {dateStr}</span>
             </div>
             <div className="mt-5 flex items-start gap-1">
               <span className="app-hero-currency mt-1">฿</span>
@@ -505,7 +520,7 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
               </span>
             </div>
 
-            <p className="mt-3 max-w-2xl text-[14px] leading-6 text-white/64">
+            <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[var(--muted)]">
               {ctx.summary.transactionCount > 0
                 ? `${ctx.summary.transactionCount} รายการวันนี้ — ${ctx.summary.insight}`
                 : "ยังไม่มีรายการวันนี้ อัปโหลดสลิปแรกได้เลย"}
@@ -518,13 +533,22 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
                 { icon: <ReceiptText size={14} />,   label: "Items",   value: String(ctx.summary.transactionCount) },
               ].map((m, i) => (
                 <div className={`metric-tile delay-${i + 1} animate-in`} key={m.label}>
-                  <div className="flex items-center gap-1.5 text-white/58">
+                  <div className="flex items-center gap-1.5 text-[var(--muted)]">
                     {m.icon}
                     <span className="text-[11px] font-medium uppercase tracking-wider">{m.label}</span>
                   </div>
                   <p className="metric-value">{m.value}</p>
                 </div>
               ))}
+            </div>
+            
+            {/* Added Premium Line Chart for data visualization */}
+            <div className="mt-8 pt-6 border-t border-[var(--line)]">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp size={14} className="text-[var(--muted)]" />
+                <span className="text-[12px] font-semibold text-[var(--muted)] tracking-wider uppercase">Spending Trend</span>
+              </div>
+              <SpendingChart transactions={ctx.transactions} />
             </div>
           </div>
           <div className="action-dock xl:flex-col">
@@ -547,7 +571,7 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_380px]">
         <div className="surface animate-in delay-2 p-5 sm:p-6">
           <SectionHead icon={<ReceiptText size={16} />} title="Recent transactions" href="/transactions" linkLabel="View all" />
-          <TxList transactions={ctx.todayTx} compact />
+          <TxList transactions={ctx.todayTx} ctx={ctx} compact />
         </div>
         <div className="surface animate-in delay-3 p-5 sm:p-6">
           <SectionHead icon={<Sparkles size={16} />} title="Daily brief" />
@@ -696,7 +720,7 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
 
       <div className="surface p-5 sm:p-6">
         <SectionHead icon={<ReceiptText size={16} />} title="Ledger" linkLabel={`${filteredTransactions.length} items`} />
-        <TxList transactions={filteredTransactions} />
+        <TxList transactions={filteredTransactions} ctx={ctx} />
       </div>
     </div>
   );
@@ -840,7 +864,9 @@ function PeriodSummaryCards({ summaries }: { summaries: Record<PeriodKey, Return
   );
 }
 
-function TxList({ transactions, compact = false }: { transactions: Transaction[]; compact?: boolean }) {
+function TxList({ transactions, ctx, compact = false }: { transactions: Transaction[]; ctx?: AppCtx; compact?: boolean }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   if (transactions.length === 0) {
     return (
       <div className="mt-4 rounded-lg border border-dashed border-[var(--line)] bg-[var(--soft)] p-5">
@@ -869,22 +895,65 @@ function TxList({ transactions, compact = false }: { transactions: Transaction[]
     <div className="mt-4">
       {transactions.map((tx) => {
         const color = categoryColor.get(tx.categoryName) ?? "#9CA3AF";
+        const isExpanded = expandedId === tx.id;
+        
+        // Find related transactions (Obsidian-style linked thinking)
+        let relatedByCategory = 0;
+        let relatedByMerchant = 0;
+        if (ctx && isExpanded) {
+          relatedByCategory = ctx.transactions.filter(t => t.categoryName === tx.categoryName && t.id !== tx.id).length;
+          relatedByMerchant = ctx.transactions.filter(t => t.receiverName === tx.receiverName && t.id !== tx.id).length;
+        }
+
         return (
-          <div className="tx-row" key={tx.id}>
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="cat-badge mt-1.5" style={{ background: color }} />
-              <div className="min-w-0">
-                <p className="truncate text-[14px] font-medium">{tx.title}</p>
-                <p className="mt-0.5 text-[12px] text-[var(--muted)]">
-                  {tx.categoryName}
-                  {tx.transactionTime ? ` · ${tx.transactionTime}` : ""}
-                  {!compact && tx.referenceNo ? ` · ${tx.referenceNo}` : ""}
-                </p>
+          <div key={tx.id} className="border-b border-[var(--line)] last:border-none">
+            <div 
+              className={`tx-row cursor-pointer hover:bg-[var(--soft)] px-2 -mx-2 rounded-lg border-none ${isExpanded ? 'bg-[var(--soft)]' : ''}`}
+              onClick={() => setExpandedId(isExpanded ? null : tx.id)}
+            >
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="cat-badge mt-1.5" style={{ background: color }} />
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-medium">{tx.title}</p>
+                  <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                    {tx.categoryName}
+                    {tx.transactionTime ? ` · ${tx.transactionTime}` : ""}
+                    {!compact && tx.referenceNo ? ` · ${tx.referenceNo}` : ""}
+                  </p>
+                </div>
               </div>
+              <p className="font-figures shrink-0 text-[14px] font-medium text-[var(--foreground)]">
+                −{formatTHB(tx.amount)}
+              </p>
             </div>
-            <p className="font-figures shrink-0 text-[14px] font-medium text-[var(--bad)]">
-              −{formatTHB(tx.amount)}
-            </p>
+            
+            {/* Linked Relationships Panel */}
+            {isExpanded && ctx && (
+              <div className="animate-in mb-3 ml-7 mr-2 rounded-lg bg-[var(--panel)] border border-[var(--line)] p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={14} className="text-[var(--muted)]" />
+                  <p className="text-[12px] font-semibold tracking-wider text-[var(--muted)] uppercase">Linked Connections</p>
+                </div>
+                
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="rounded-md bg-[var(--soft)] p-3 flex flex-col gap-1">
+                    <span className="text-[11px] text-[var(--muted)]">Category Network</span>
+                    <span className="text-[13px] font-medium">{tx.categoryName}</span>
+                    <span className="text-[12px] text-[var(--muted)] mt-1">
+                      {relatedByCategory > 0 ? `${relatedByCategory} related expenses` : 'First expense in this category'}
+                    </span>
+                  </div>
+                  
+                  <div className="rounded-md bg-[var(--soft)] p-3 flex flex-col gap-1">
+                    <span className="text-[11px] text-[var(--muted)]">Merchant Network</span>
+                    <span className="text-[13px] font-medium truncate">{tx.receiverName || tx.title}</span>
+                    <span className="text-[12px] text-[var(--muted)] mt-1">
+                      {relatedByMerchant > 0 ? `${relatedByMerchant} related expenses` : 'First visit to this merchant'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
