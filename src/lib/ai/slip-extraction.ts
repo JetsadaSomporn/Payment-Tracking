@@ -53,8 +53,8 @@ export async function processSlipImage(
   }
 
   // ── SINGLE STEP: Vision directly to JSON ────────────────────────────────
-  // Using Llama 3.2 11B Vision — fast, low refusal with good prompt
-  const visionModel = "meta/llama-3.2-11b-vision-instruct";
+  // 90B has significantly lower refusal rate on Thai bank slip images
+  const visionModel = "meta/llama-3.2-90b-vision-instruct";
   console.log(`[ai-process] Unified extraction with ${visionModel}`);
   
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -68,7 +68,7 @@ export async function processSlipImage(
       messages: [
         {
           role: "system",
-          content: "You are a Thai bank slip reader. Your job is to read text from slip images and output structured JSON. Always output valid JSON, never refuse or explain.",
+          content: "You are a JSON extraction API. Output ONLY a JSON object. Never write explanations, greetings, disclaimers, or any text outside the JSON object. If you cannot read a field, use null for that field.",
         },
         {
           role: "user",
@@ -103,8 +103,14 @@ export async function processSlipImage(
 
   // Parse the structured response
   try {
-    const jsonStr = content.includes("```json") 
-      ? content.split("```json")[1].split("```")[0] 
+    // Detect model refusal — natural language response with no JSON at all
+    if (!content.includes("{")) {
+      console.error("[ai-process] Model refusal detected (no JSON in response):", content.substring(0, 300));
+      throw new Error("AI could not read this image. Please use a clear, well-lit photo of a Thai bank slip.");
+    }
+
+    const jsonStr = content.includes("```json")
+      ? content.split("```json")[1].split("```")[0]
       : content;
     
     const rawJson = parseJsonObject(jsonStr);
