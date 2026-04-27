@@ -22,6 +22,8 @@ const robotoMono = Roboto_Mono({
   display: "swap",
 });
 
+import { AuthProvider } from "@/providers/auth-provider";
+
 export const metadata: Metadata = {
   title: "Payment Tracker",
   description: "Track Thai bank slip expenses with a confirmation-first flow.",
@@ -37,7 +39,11 @@ export default function RootLayout({
       lang="th"
       className={`h-full antialiased ${inter.variable} ${notoThai.variable} ${robotoMono.variable}`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }

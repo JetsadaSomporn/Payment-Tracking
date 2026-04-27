@@ -45,6 +45,7 @@ import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SlipExtractionResult, Transaction } from "@/lib/types";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { SpendingChart } from "./SpendingChart";
+import { useAuth } from "@/providers/auth-provider";
 
 export type PaymentTrackerView =
   | "dashboard"
@@ -98,6 +99,7 @@ type DraftTransaction = {
 type PeriodKey = "day" | "week" | "month";
 
 export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?: PaymentTrackerView }) {
+  const { user, session, isLoading: isLoadingAuth, authLabel, userMeta } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -105,9 +107,6 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const [draft, setDraft] = useState<DraftTransaction>(emptyDraft());
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [authLabel, setAuthLabel] = useState("Not signed in");
-  const [userMeta, setUserMeta] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const today = todayBangkokDate();
@@ -118,6 +117,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const hasSupabase = Boolean(getBrowserSupabaseClient());
 
   const loadTransactions = useCallback(async () => {
+    if (!session) return;
     try {
       const res = await fetch("/api/transactions", {
         method: "GET",
@@ -141,46 +141,15 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       setMessage(errorMessage);
       setTransactions([]);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
-    const supabase = getBrowserSupabaseClient();
-    if (!supabase) {
-      window.localStorage.removeItem(localTransactionsKey);
-      return;
+    if (session) {
+      void loadTransactions();
+    } else if (!isLoadingAuth) {
+      setTransactions([]);
     }
-
-    window.localStorage.removeItem(localTransactionsKey);
-    console.log("[auth] initial session loading started");
-    
-    supabase.auth.getUser().then(({ data, error }: { data: { user: User | null }, error: any }) => {
-      console.log("[auth] getUser result:", { userFound: !!data.user, error: error?.message });
-      if (data.user?.email) setAuthLabel(data.user.email);
-      if (data.user?.user_metadata) setUserMeta(data.user.user_metadata);
-      if (!data.user) setIsLoadingAuth(false); // Only set false if no user, otherwise wait for session
-    });
-    
-    supabase.auth.getSession().then(({ data, error }: { data: { session: Session | null }, error: any }) => {
-      console.log("[auth] getSession result:", { sessionFound: !!data.session, error: error?.message });
-      if (data.session) {
-        void loadTransactions();
-      }
-      setIsLoadingAuth(false); // Done checking initial session
-    });
-    
-    const { data: l } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, s: Session | null) => {
-      console.log("[auth] auth state changed:", _e, { sessionFound: !!s });
-      setAuthLabel(s?.user.email ?? "ยังไม่ได้ login");
-      setUserMeta(s?.user?.user_metadata ?? null);
-      setIsLoadingAuth(false);
-      if (s) {
-        void loadTransactions();
-      } else {
-        setTransactions([]);
-      }
-    });
-    return () => l.subscription.unsubscribe();
-  }, [loadTransactions]);
+  }, [session, isLoadingAuth, loadTransactions]);
 
   async function handleGoogleLogin() {
     console.log("[oauth-login] clicked");
@@ -235,10 +204,14 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     setIsProcessing(true);
     setMessage(null);
     try {
-      setMessage("กำลังส่งภาพไปให้ AI ประมวลผล (NVIDIA Vision + DeepSeek)...");
+      setMessage("กำลังเตรียมรูปภาพและส่งให้ AI...");
 
+      // ── Client-side Image Optimization ──────────────────────────────────
+      // Reduce image size to ~1000px height for faster upload & OCR
+      const optimizedFile = await resizeImage(selectedFile, 1000);
+      
       const body = new FormData();
-      body.set("file", selectedFile);
+      body.set("file", optimizedFile);
       
       const res = await fetch("/api/slips/process", { method: "POST", headers: await authHeaders(), body });
       const data = (await res.json()) as { ok: boolean; error?: string; slip?: SlipExtractionResult };
@@ -260,8 +233,8 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       });
       setMessage(
         data.slip.confidence < 0.75
-          ? "ยังอ่านสลิปไม่ได้ชัดเจน — กรอกเองก่อนบันทึก"
-          : "อ่านสลิปสำเร็จ — ตรวจก่อนบันทึก",
+          ? "ยังอ่านสลิปได้ไม่ชัด — กรุณาตรวจสอบและกรอกเพิ่ม"
+          : "อ่านสลิปสำเร็จ — ตรวจสอบความถูกต้องก่อนบันทึก",
       );
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "อ่านสลิปไม่สำเร็จ";
@@ -270,6 +243,32 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       setIsProcessing(false);
     }
   }
+
+/**
+ * Helper to resize image on client side for performance
+ */
+async function resizeImage(file: File, maxDim: number): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      let { width, height } = img;
+      if (width > height) {
+        if (width > maxDim) { height *= maxDim / width; width = maxDim; }
+      } else {
+        if (height > maxDim) { width *= maxDim / height; height = maxDim; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.85);
+    };
+    img.onerror = () => resolve(file);
+  });
+}
 
   async function saveTransaction(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -306,7 +305,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   }
 
   const ctx: AppCtx = {
-    authLabel, userMeta, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
+    authLabel, userMeta, user, session, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
     periodSummary, previewUrl, selectedFile, setDraft, summary, todayTx, transactions,
     handleFileChange, handleGoogleLogin, processSlip, saveTransaction,
   };
@@ -357,6 +356,8 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
 type AppCtx = {
   authLabel: string;
   userMeta: { full_name?: string; avatar_url?: string } | null;
+  user: User | null;
+  session: Session | null;
   isLoadingAuth: boolean;
   catTotals: Array<{ category: string; amount: number }>;
   draft: DraftTransaction;
