@@ -435,7 +435,7 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
   onToggleSidebar: () => void;
 }) {
   const titles: Record<PaymentTrackerView, string> = {
-    dashboard: "Today", upload: "Upload slip",
+    dashboard: "Today", graph: "Spending Graph", upload: "Upload slip",
     transactions: "Transactions", insights: "Insights", settings: "Settings",
   };
 
