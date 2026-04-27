@@ -103,15 +103,34 @@ export async function processSlipImage(
       ? content.split("```json")[1].split("```")[0] 
       : content;
     
+    const rawJson = parseJsonObject(jsonStr);
+    
+    // ── Data Sanitization ────────────────────────────────────────────────
+    // AI sometimes sends string "high" or "0.9" instead of number. Fix it.
+    if (typeof rawJson.confidence === "string") {
+      rawJson.confidence = rawJson.confidence.toLowerCase() === "high" ? 0.95 : 0.5;
+    }
+    
+    // Ensure document_type matches enum exactly
+    if (rawJson.document_type && !["thai_bank_slip", "receipt", "unknown"].includes(rawJson.document_type)) {
+      rawJson.document_type = rawJson.document_type.includes("bank") ? "thai_bank_slip" : "unknown";
+    }
+
+    // Ensure status matches enum
+    if (rawJson.status && !["success", "failed", "unknown"].includes(rawJson.status)) {
+      rawJson.status = rawJson.status === "paid" || rawJson.status === "success" ? "success" : "unknown";
+    }
+
     const parsed = slipExtractionSchema.parse({
-      ...parseJsonObject(jsonStr),
-      raw_text: "Unified vision extraction",
+      ...rawJson,
+      raw_text: rawJson.raw_text || "Unified vision extraction",
     });
     
     return toSlipExtractionResult(parsed);
   } catch (err) {
-    console.error("[ai-process] Extraction parse failed:", content);
-    throw new Error("Could not understand the AI response format.");
+    console.error("[ai-process] Extraction parse failed. Content:", content);
+    console.error("[ai-process] Validation error:", err);
+    throw new Error("AI returned data in an invalid format. Please try again.");
   }
 }
 
