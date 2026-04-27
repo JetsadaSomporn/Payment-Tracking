@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import {
   buildGraph,
-  runForceSimulation,
+  applyForces,
   nodeRadius,
   type GraphNode,
   type GraphEdge,
@@ -57,16 +57,20 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   useEffect(() => { edgesRef.current = edges; dirtyRef.current = true; }, [edges]);
   useEffect(() => { maxValueRef.current = maxValue; dirtyRef.current = true; }, [maxValue]);
 
-  // Force layout (re-runs only when node IDs change)
+  // Init random positions when node set changes
   const layoutKey = useMemo(() => nodes.map((n) => n.id).sort().join("|"), [nodes]);
   const prevLayoutKeyRef = useRef("");
   useEffect(() => {
-    console.log("[graph-view] layout effect", { layoutKey, prev: prevLayoutKeyRef.current, nodeCount: nodes.length, edgeCount: edgesRef.current.length, size: sizeRef.current });
     if (layoutKey === prevLayoutKeyRef.current) return;
     prevLayoutKeyRef.current = layoutKey;
     const { width: W, height: H } = sizeRef.current;
-    const copy = nodes.map((n) => ({ ...n, x: 0, y: 0, vx: 0, vy: 0 }));
-    runForceSimulation(copy, edgesRef.current, W, H);
+    const cx = W / 2, cy = H / 2;
+    const copy = nodes.map((n) => ({
+      ...n,
+      x: cx + (Math.random() - 0.5) * 200,
+      y: cy + (Math.random() - 0.5) * 200,
+      vx: 0, vy: 0,
+    }));
     layoutNodesRef.current = copy;
     const m = new Map<string, GraphNode>();
     for (const n of copy) m.set(n.id, n);
@@ -121,12 +125,23 @@ export default function GraphView({ transactions }: { transactions: Transaction[
 
     const draw = () => {
       rafRef.current = requestAnimationFrame(draw);
-      if (!dirtyRef.current) return;
+
+      // ── Real-time physics step — every frame ─────────────────────────
+      const { width: W, height: H } = sizeRef.current;
+      applyForces(layoutNodesRef.current, edgesRef.current, W, H, 0.8);
+
+      // Skip rendering if nothing changed (tab hidden, settled)
+      if (!dirtyRef.current) {
+        // Check if any node is still moving significantly
+        const moving = layoutNodesRef.current.some(n => Math.abs(n.vx) > 0.05 || Math.abs(n.vy) > 0.05);
+        if (!moving) return;
+        dirtyRef.current = true; // force render if still settling
+      }
       dirtyRef.current = false;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      const { width: W, height: H } = sizeRef.current;
+      // W, H already destructured above in physics step
       const dpr = window.devicePixelRatio || 1;
       const targetW = Math.round(W * dpr);
       const targetH = Math.round(H * dpr);

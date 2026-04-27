@@ -334,6 +334,8 @@ Implemented controls:
 - RLS on user-owned tables
 - CSP with nonce and `strict-dynamic`
 - HSTS in production
+- `Referrer-Policy` and `Permissions-Policy` headers
+- Supabase auth cookies set with `HttpOnly` (except PKCE code verifier cookie)
 - Sensitive transaction fields encrypted before DB insert:
   - `title`
   - `bank_name`

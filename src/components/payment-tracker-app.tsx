@@ -44,7 +44,6 @@ import { formatTHB, parseAmount, todayBangkokDate } from "@/lib/money";
 import { summarizeToday } from "@/lib/summary";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SlipExtractionResult, Transaction } from "@/lib/types";
-import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { SpendingChart } from "./SpendingChart";
 import { useAuth } from "@/providers/auth-provider";
 import GraphView from "@/components/views/graph-view";
@@ -106,7 +105,13 @@ type DraftTransaction = {
 type PeriodKey = "day" | "week" | "month";
 
 export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?: PaymentTrackerView }) {
-  const { user, session, isLoading: isLoadingAuth, authLabel, userMeta } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isLoading: isLoadingAuth,
+    authLabel,
+    userMeta,
+  } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -124,7 +129,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const hasSupabase = Boolean(getBrowserSupabaseClient());
 
   const loadTransactions = useCallback(async () => {
-    if (!session) return;
+    if (!isAuthenticated) return;
     try {
       const res = await fetch("/api/transactions", {
         method: "GET",
@@ -148,15 +153,15 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       setMessage(errorMessage);
       setTransactions([]);
     }
-  }, [session]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (session) {
+    if (isAuthenticated) {
       void loadTransactions();
     } else if (!isLoadingAuth) {
       setTransactions([]);
     }
-  }, [session, isLoadingAuth, loadTransactions]);
+  }, [isAuthenticated, isLoadingAuth, loadTransactions]);
 
   async function handleGoogleLogin() {
     console.log("[oauth-login] clicked");
@@ -330,7 +335,7 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
   }
 
   const ctx: AppCtx = {
-    authLabel, userMeta, user, session, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
+    authLabel, userMeta, user, isAuthenticated, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
     periodSummary, previewUrl, selectedFile, setDraft, summary, todayTx, transactions,
     handleFileChange, handleGoogleLogin, processSlip, saveTransaction, deleteTransaction,
   };
@@ -382,8 +387,8 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
 export type AppCtx = {
   authLabel: string;
   userMeta: { full_name?: string; avatar_url?: string } | null;
-  user: User | null;
-  session: Session | null;
+  user: ReturnType<typeof useAuth>["user"];
+  isAuthenticated: boolean;
   isLoadingAuth: boolean;
   catTotals: Array<{ category: string; amount: number }>;
   draft: DraftTransaction;
@@ -459,7 +464,7 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
     transactions: "Transactions", insights: "Insights", settings: "Settings",
   };
 
-  const isAuthenticated = ctx.authLabel !== "Not signed in" && ctx.authLabel !== "ยังไม่ได้ login";
+  const isAuthenticated = ctx.isAuthenticated;
   const userInitial = isAuthenticated && ctx.authLabel.includes("@") 
     ? ctx.authLabel.charAt(0).toUpperCase() 
     : "U";
@@ -1017,16 +1022,11 @@ function StatusRows({ items }: { items: [string, string][] }) {
   );
 }
 async function authHeaders(): Promise<HeadersInit> {
-  const supabase = getBrowserSupabaseClient();
-  if (!supabase) throw new Error("ระบบต้องใช้ Supabase ในการเชื่อมต่อ");
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("กรุณาเข้าสู่ระบบก่อนทำรายการ");
   const csrfToken = document.cookie
     ?.split("; ")
     ?.find((r) => r.startsWith("csrf-token="))
     ?.split("=")[1];
-  const headers: HeadersInit = { Authorization: `Bearer ${token}` };
+  const headers: HeadersInit = {};
   if (csrfToken) {
     (headers as Record<string, string>)["x-csrf-token"] = csrfToken;
   }

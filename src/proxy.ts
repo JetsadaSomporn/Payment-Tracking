@@ -8,6 +8,12 @@ const MAX_CACHE_ENTRIES = 5_000;
 const sessionCache = new Map<string, number>();
 
 function setSessionCache(key: string, value: number) {
+  for (const [cachedKey, updatedAt] of sessionCache.entries()) {
+    if (value - updatedAt > CACHE_TTL) {
+      sessionCache.delete(cachedKey);
+    }
+  }
+
   if (sessionCache.size >= MAX_CACHE_ENTRIES) {
     const firstKey = sessionCache.keys().next().value;
     if (firstKey !== undefined) {
@@ -73,15 +79,15 @@ export async function proxy(request: NextRequest) {
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({ request });
+          applySecurityHeaders(supabaseResponse, csp, isDev);
           supabaseResponse.headers.set("x-nonce", nonce);
-          supabaseResponse.headers.set("Content-Security-Policy", csp);
           supabaseResponse.headers.set("x-csrf-token", csrfToken);
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
               path: "/",
               sameSite: "lax",
-              httpOnly: false,
+              httpOnly: shouldUseHttpOnly(name),
               secure: !isDev,
             }),
           );
@@ -98,7 +104,7 @@ export async function proxy(request: NextRequest) {
 
   if (!cached || Date.now() - cached > CACHE_TTL) {
     await supabase.auth.getUser();
-    sessionCache.set(cookieFingerprint, Date.now());
+    setSessionCache(cookieFingerprint, Date.now());
   }
 
   // ── Force cookie path fix on EVERY request ──────────────────────────────
@@ -106,12 +112,12 @@ export async function proxy(request: NextRequest) {
     supabaseResponse.cookies.set(c.name, c.value, {
       path: "/",
       sameSite: "lax",
-      httpOnly: false,
+      httpOnly: shouldUseHttpOnly(c.name),
       secure: !isDev,
     });
   });
 
-  supabaseResponse.headers.set("Content-Security-Policy", csp);
+  applySecurityHeaders(supabaseResponse, csp, isDev);
   supabaseResponse.cookies.set("csrf-token", csrfToken, {
     path: "/",
     sameSite: "lax",
@@ -129,3 +135,29 @@ export const config = {
 };
 
 export { proxy as middleware };
+
+function shouldUseHttpOnly(cookieName: string) {
+  return cookieName.startsWith("sb-") && !cookieName.includes("code-verifier");
+}
+
+function applySecurityHeaders(
+  response: NextResponse,
+  csp: string,
+  isDev: boolean,
+) {
+  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  );
+
+  if (!isDev) {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload",
+    );
+  }
+}

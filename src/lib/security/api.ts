@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
+import { isIP } from "node:net";
 
 type RateLimitOptions = {
   keyPrefix: string;
@@ -15,46 +16,53 @@ export async function checkRateLimit(
 ): Promise<boolean> {
   const ip = getClientIp(request);
   const key = `${options.keyPrefix}:${ip}`;
+  const inMemoryAllowed = checkInMemoryBucket(key, options);
 
-  // ── 1. In-memory check (fast path, ~0ms) ────────────────────────────────
-  const now = Date.now();
-  const bucket = buckets.get(key);
-
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + options.windowMs });
-    return true;
-  }
-
-  if (bucket.count >= options.limit) {
+  if (!inMemoryAllowed) {
     return false;
   }
 
-  bucket.count += 1;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const isProduction = process.env.NODE_ENV === "production";
 
-  // ── 2. DB-backed verify (only when approaching limit, for cross-instance accuracy) ──
-  if (bucket.count >= Math.floor(options.limit * 0.7)) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (supabaseUrl && supabaseAnonKey) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        const { data, error } = await supabase.rpc("check_rate_limit", {
-          p_key: key,
-          p_limit: options.limit,
-          p_window_ms: options.windowMs,
-        });
-
-        if (!error && typeof data === "boolean") {
-          return data;
-        }
-      } catch {
-        // DB unavailable — fall through to in-memory result
-      }
-    }
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return isProduction ? false : true;
   }
 
-  return true;
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data, error } = await supabase.rpc("check_rate_limit", {
+      p_key: key,
+      p_limit: options.limit,
+      p_window_ms: options.windowMs,
+    });
+
+    if (error) {
+      console.error("[rate-limit] DB RPC error", {
+        keyPrefix: options.keyPrefix,
+        code: error.code,
+        message: error.message,
+      });
+      return isProduction ? false : true;
+    }
+
+    if (typeof data !== "boolean") {
+      console.error("[rate-limit] DB RPC returned non-boolean result", {
+        keyPrefix: options.keyPrefix,
+        resultType: typeof data,
+      });
+      return isProduction ? false : true;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("[rate-limit] DB RPC threw exception", {
+      keyPrefix: options.keyPrefix,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return isProduction ? false : true;
+  }
 }
 
 export function jsonOk<T>(body: T, init?: ResponseInit) {
@@ -78,6 +86,18 @@ export function withSecurityHeaders(init: ResponseInit = {}, rateLimitInfo?: { l
   headers.set("Content-Type", "application/json; charset=utf-8");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  );
+
+  if (process.env.NODE_ENV === "production") {
+    headers.set(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload",
+    );
+  }
 
   if (rateLimitInfo) {
     headers.set("RateLimit-Limit", String(rateLimitInfo.limit));
@@ -153,8 +173,104 @@ function getClientIp(request: Request) {
   const forwardedFor = request.headers.get("x-forwarded-for");
 
   if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
+    const candidates = forwardedFor
+      .split(",")
+      .map((ip) => normalizeIp(ip))
+      .filter((ip): ip is string => Boolean(ip) && isIP(ip) !== 0);
+    const publicFromRight = [...candidates].reverse().find(isPublicIp);
+
+    if (publicFromRight) {
+      return publicFromRight;
+    }
+
+    const rightMostValid = candidates.at(-1);
+    if (rightMostValid) {
+      return rightMostValid;
+    }
   }
 
-  return request.headers.get("x-real-ip") ?? "local";
+  const realIp = normalizeIp(request.headers.get("x-real-ip"));
+  if (realIp && isIP(realIp) !== 0) {
+    return realIp;
+  }
+
+  return "unknown";
+}
+
+function checkInMemoryBucket(key: string, options: RateLimitOptions) {
+  const now = Date.now();
+  const bucket = buckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + options.windowMs });
+    return true;
+  }
+
+  if (bucket.count >= options.limit) {
+    return false;
+  }
+
+  bucket.count += 1;
+  return true;
+}
+
+function normalizeIp(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith("[") && trimmed.includes("]")) {
+    return trimmed.slice(1, trimmed.indexOf("]"));
+  }
+
+  const colonCount = (trimmed.match(/:/g) ?? []).length;
+  if (colonCount === 1 && trimmed.includes(".")) {
+    return trimmed.split(":")[0] ?? null;
+  }
+
+  return trimmed;
+}
+
+function isPublicIp(ip: string) {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split(".").map(Number);
+
+    if (
+      a === 10 ||
+      a === 0 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (isIP(ip) === 6) {
+    const lower = ip.toLowerCase();
+    if (
+      lower === "::1" ||
+      lower.startsWith("fc") ||
+      lower.startsWith("fd") ||
+      lower.startsWith("fe8") ||
+      lower.startsWith("fe9") ||
+      lower.startsWith("fea") ||
+      lower.startsWith("feb")
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  return false;
 }

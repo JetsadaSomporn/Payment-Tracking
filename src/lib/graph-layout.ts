@@ -39,7 +39,6 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
   const edgeMap = new Map<string, GraphEdge>();
 
   for (const tx of transactions.filter(t => t.type === "expense")) {
-    // Category node
     const catKey = `cat:${tx.categoryName}`;
     if (!nodeMap.has(catKey)) {
       nodeMap.set(catKey, {
@@ -49,7 +48,6 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
     }
     nodeMap.get(catKey)!.value += tx.amount;
 
-    // Merchant/Bank node
     const merchantLabel = tx.bankName ?? tx.receiverName ?? tx.title;
     if (merchantLabel && merchantLabel.length > 0) {
       const merchKey = `merchant:${merchantLabel}`;
@@ -61,7 +59,6 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
       }
       nodeMap.get(merchKey)!.value += tx.amount;
 
-      // Edge: category ↔ merchant
       const edgeKey = `${catKey}↔${merchKey}`;
       if (!edgeMap.has(edgeKey)) {
         edgeMap.set(edgeKey, { source: catKey, target: merchKey, weight: 0 });
@@ -69,7 +66,6 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
       edgeMap.get(edgeKey)!.weight += 1;
     }
 
-    // Month node (for time context)
     const monthKey = `month:${tx.transactionDate.slice(0, 7)}`;
     if (!nodeMap.has(monthKey)) {
       nodeMap.set(monthKey, {
@@ -79,7 +75,6 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
     }
     nodeMap.get(monthKey)!.value += tx.amount;
 
-    // Edge: month ↔ category
     const mEdgeKey = `${monthKey}↔${catKey}`;
     if (!edgeMap.has(mEdgeKey)) {
       edgeMap.set(mEdgeKey, { source: monthKey, target: catKey, weight: 0 });
@@ -93,71 +88,72 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
   };
 }
 
-/** Force-directed layout: Barnes-Hut style simplified simulation */
-export function runForceSimulation(
+/** Apply one simulation step — called every frame for smooth animation */
+export function applyForces(
   nodes: GraphNode[],
   edges: GraphEdge[],
   width: number,
   height: number,
-  iterations = 50,
+  dt: number = 1,
 ) {
   const centerX = width / 2;
   const centerY = height / 2;
-  const repulsion = 800;
-  const attraction = 0.008;
-  const damping = 0.85;
 
-  // Initialize random positions
-  for (const n of nodes) {
-    n.x = centerX + (Math.random() - 0.5) * 200;
-    n.y = centerY + (Math.random() - 0.5) * 200;
-    n.vx = 0;
-    n.vy = 0;
+  // Scale forces by timestep for smoothness
+  const repulsion = 600 * dt;
+  const attraction = 0.003 * dt;
+  const gravity = 0.0008 * dt;
+  const damping = Math.pow(0.92, dt);
+
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[j].x - nodes[i].x;
+      const dy = nodes[j].y - nodes[i].y;
+      const distSq = dx * dx + dy * dy + 1;
+      const dist = Math.sqrt(distSq);
+      const force = repulsion / distSq;
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      nodes[i].vx -= fx;
+      nodes[i].vy -= fy;
+      nodes[j].vx += fx;
+      nodes[j].vy += fy;
+    }
   }
 
-  for (let iter = 0; iter < iterations; iter++) {
-    // Repulsion between all pairs
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dx = nodes[j].x - nodes[i].x;
-        const dy = nodes[j].y - nodes[i].y;
-        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-        const force = repulsion / (dist * dist);
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        nodes[i].vx -= fx;
-        nodes[i].vy -= fy;
-        nodes[j].vx += fx;
-        nodes[j].vy += fy;
-      }
-    }
+  // Attraction along edges
+  for (const edge of edges) {
+    const src = nodes.find((n) => n.id === edge.source);
+    const tgt = nodes.find((n) => n.id === edge.target);
+    if (!src || !tgt) continue;
+    const dx = tgt.x - src.x;
+    const dy = tgt.y - src.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) continue;
+    const idealLen = 80 + edge.weight * 3;
+    const force = (dist - idealLen) * attraction * Math.log(1 + edge.weight);
+    const fx = (dx / dist) * force;
+    const fy = (dy / dist) * force;
+    src.vx += fx;
+    src.vy += fy;
+    tgt.vx -= fx;
+    tgt.vy -= fy;
+  }
 
-    // Attraction along edges
-    for (const edge of edges) {
-      const src = nodes.find((n) => n.id === edge.source);
-      const tgt = nodes.find((n) => n.id === edge.target);
-      if (!src || !tgt) continue;
-      const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const force = dist * attraction * Math.log(1 + edge.weight);
-      src.vx += dx * force;
-      src.vy += dy * force;
-      tgt.vx -= dx * force;
-      tgt.vy -= dy * force;
-    }
+  // Center gravity
+  for (const n of nodes) {
+    n.vx += (centerX - n.x) * gravity;
+    n.vy += (centerY - n.y) * gravity;
+  }
 
-    // Center gravity + bounds
-    for (const n of nodes) {
-      n.vx += (centerX - n.x) * 0.001;
-      n.vy += (centerY - n.y) * 0.001;
-      n.vx *= damping;
-      n.vy *= damping;
-      n.x += n.vx;
-      n.y += n.vy;
-      n.x = Math.max(40, Math.min(width - 40, n.x));
-      n.y = Math.max(40, Math.min(height - 40, n.y));
-    }
+  // Apply velocity + damping + bounds
+  for (const n of nodes) {
+    n.vx *= damping;
+    n.vy *= damping;
+    n.x += n.vx;
+    n.y += n.vy;
+    n.x = Math.max(40, Math.min(width - 40, n.x));
+    n.y = Math.max(40, Math.min(height - 40, n.y));
   }
 }
 

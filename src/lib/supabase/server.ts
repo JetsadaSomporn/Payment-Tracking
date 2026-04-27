@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 export type AuthenticatedUser = {
   id: string;
   email: string | null;
+  userMeta: { full_name?: string; avatar_url?: string } | null;
 };
 
 type AuthResult =
@@ -18,6 +19,7 @@ type AuthResult =
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
+  const isProduction = process.env.NODE_ENV === "production";
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +36,8 @@ export async function createSupabaseServerClient() {
                 ...options,
                 path: "/",
                 sameSite: "lax",
-                httpOnly: false,
+                httpOnly: shouldUseHttpOnly(name),
+                secure: isProduction,
               })
             );
           } catch {
@@ -79,6 +82,7 @@ export async function requireAuthenticatedUser(
         user: {
           id: data.user.id,
           email: data.user.email ?? null,
+          userMeta: toUserMeta(data.user.user_metadata),
         },
       };
     }
@@ -101,6 +105,7 @@ export async function requireAuthenticatedUser(
     user: {
       id: user.id,
       email: user.email ?? null,
+      userMeta: toUserMeta(user.user_metadata),
     },
   };
 }
@@ -135,4 +140,26 @@ export function readBearerToken(request: Request) {
   }
 
   return token;
+}
+
+function shouldUseHttpOnly(cookieName: string) {
+  return cookieName.startsWith("sb-") && !cookieName.includes("code-verifier");
+}
+
+function toUserMeta(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+
+  const record = metadata as Record<string, unknown>;
+  const full_name =
+    typeof record.full_name === "string" ? record.full_name : undefined;
+  const avatar_url =
+    typeof record.avatar_url === "string" ? record.avatar_url : undefined;
+
+  if (!full_name && !avatar_url) {
+    return null;
+  }
+
+  return { full_name, avatar_url };
 }
