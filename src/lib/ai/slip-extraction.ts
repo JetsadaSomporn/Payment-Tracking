@@ -210,14 +210,26 @@ type NvidiaChatResponse = {
 
 function parseJsonObject(content: string) {
   try {
-    return JSON.parse(content);
-  } catch {
-    const match = content.match(/\{[\s\S]*\}/);
-
-    if (!match) {
-      throw new Error("NVIDIA slip extraction did not return JSON");
+    // 1. Clean up common AI markdown/noise
+    let cleanContent = content.trim();
+    if (cleanContent.includes("```")) {
+      const match = cleanContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (match) cleanContent = match[1];
     }
 
-    return JSON.parse(match[0]);
+    // 2. Try standard parse
+    try {
+      return JSON.parse(cleanContent);
+    } catch (e) {
+      // 3. AI sent "JS Object" style (no quotes on keys). Let's try to fix it.
+      // This regex attempts to add double quotes to unquoted keys
+      const fixedJson = cleanContent
+        .replace(/(['"])?([a-z0-9A-Z_]+)(['"])?:/g, '"$2":')
+        .replace(/'/g, '"');
+      return JSON.parse(fixedJson);
+    }
+  } catch (err) {
+    console.error("[ai-process] Final JSON parse attempt failed:", content);
+    throw new Error("AI returned data in an invalid format.");
   }
 }
