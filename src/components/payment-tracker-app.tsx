@@ -168,14 +168,42 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   }, [loadTransactions]);
 
   async function handleGoogleLogin() {
-    const supabase = getBrowserSupabaseClient();
-    if (!supabase) return;
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin + "/auth/callback",
-      },
-    });
+    console.log("[oauth-login] clicked");
+    try {
+      const supabase = getBrowserSupabaseClient();
+      console.log("[oauth-login] client initialized:", !!supabase);
+      
+      if (!supabase) {
+        console.error("[oauth-login] error: supabase client is null");
+        setMessage("ไม่สามารถเชื่อมต่อกับ Supabase ได้");
+        return;
+      }
+
+      const redirectTo = window.location.origin + "/auth/callback";
+      console.log("[oauth-login] redirectTo:", redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          skipBrowserRedirect: false,
+        },
+      });
+
+      console.log("[oauth-login] result:", { 
+        hasData: !!data, 
+        url: data?.url,
+        error: error?.message 
+      });
+
+      if (error) {
+        setMessage("Login error: " + error.message);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "unknown error";
+      console.error("[oauth-login] catch block error:", msg);
+      setMessage("Login failed: " + msg);
+    }
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
