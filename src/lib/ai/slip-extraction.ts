@@ -53,8 +53,8 @@ export async function processSlipImage(
   }
 
   // ── SINGLE STEP: Vision directly to JSON ────────────────────────────────
-  // Using Llama 3.2 90B Vision — more capable, less refusal
-  const visionModel = "meta/llama-3.2-90b-vision-instruct";
+  // Using Llama 3.2 11B Vision — fast, low refusal with good prompt
+  const visionModel = "meta/llama-3.2-11b-vision-instruct";
   console.log(`[ai-process] Unified extraction with ${visionModel}`);
   
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {

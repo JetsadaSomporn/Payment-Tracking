@@ -15,30 +15,7 @@ export async function checkRateLimit(
   const ip = getClientIp(request);
   const key = `${options.keyPrefix}:${ip}`;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (supabaseUrl && supabaseAnonKey) {
-    try {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      const { data, error } = await supabase.rpc("check_rate_limit", {
-        p_key: key,
-        p_limit: options.limit,
-        p_window_ms: options.windowMs,
-      });
-
-      if (!error && typeof data === "boolean") {
-        return data;
-      }
-    } catch {
-      // Dev can fall back locally; production must not silently lose rate limits.
-    }
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-
+  // ── 1. In-memory check (fast path, ~0ms) ────────────────────────────────
   const now = Date.now();
   const bucket = buckets.get(key);
 
@@ -52,6 +29,30 @@ export async function checkRateLimit(
   }
 
   bucket.count += 1;
+
+  // ── 2. DB-backed verify (only when approaching limit, for cross-instance accuracy) ──
+  if (bucket.count >= Math.floor(options.limit * 0.7)) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseAnonKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
+        const { data, error } = await supabase.rpc("check_rate_limit", {
+          p_key: key,
+          p_limit: options.limit,
+          p_window_ms: options.windowMs,
+        });
+
+        if (!error && typeof data === "boolean") {
+          return data;
+        }
+      } catch {
+        // DB unavailable — fall through to in-memory result
+      }
+    }
+  }
+
   return true;
 }
 

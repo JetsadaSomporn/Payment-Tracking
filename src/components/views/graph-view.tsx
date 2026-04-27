@@ -32,10 +32,16 @@ export default function GraphView({ transactions }: Props) {
     return () => ro.disconnect();
   }, []);
 
-  // Run force simulation when data changes
+  // Run force simulation when data changes (cached by ref)
+  const layoutCache = useRef<{ nodes: GraphNode[]; edges: GraphEdge[]; layoutNodes: GraphNode[] } | null>(null);
   const layoutNodes = useMemo(() => {
+    const dataKey = JSON.stringify({ n: nodes.map(n => n.id + n.value), e: edges.map(e => e.source + e.target + e.weight) });
+    if (layoutCache.current && layoutCache.current.nodes === nodes && layoutCache.current.edges === edges) {
+      return layoutCache.current.layoutNodes;
+    }
     const copy = nodes.map((n) => ({ ...n, x: 0, y: 0, vx: 0, vy: 0 }));
     runForceSimulation(copy, edges, size.width, size.height);
+    layoutCache.current = { nodes, edges, layoutNodes: copy };
     return copy;
   }, [nodes, edges, size]);
 

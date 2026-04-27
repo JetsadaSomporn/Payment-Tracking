@@ -59,16 +59,23 @@ export async function GET(request: Request) {
       "id,type,amount,fee,currency,title,ai_category,bank_name,receiver_name,reference_no,transaction_date,transaction_time,source,created_at",
     )
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(200);
 
   if (error) {
     return jsonError("transaction load failed", 500);
   }
 
-  return jsonOk({
-    ok: true,
-    transactions: data.map((row) => mapTransactionRow(row, auth.user.id)),
-  });
+  return jsonOk(
+    {
+      ok: true,
+      transactions: data.map((row) => mapTransactionRow(row, auth.user.id)),
+    },
+    {
+      headers: {
+        "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+      },
+    },
+  );
 }
 
 export async function POST(request: Request) {

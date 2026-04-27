@@ -99,7 +99,7 @@ export function runForceSimulation(
   edges: GraphEdge[],
   width: number,
   height: number,
-  iterations = 120,
+  iterations = 50,
 ) {
   const centerX = width / 2;
   const centerY = height / 2;
