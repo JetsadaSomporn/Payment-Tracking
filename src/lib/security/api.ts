@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { timingSafeEqual } from "node:crypto";
 
 type RateLimitOptions = {
   keyPrefix: string;
@@ -71,11 +72,18 @@ export function jsonError(
   );
 }
 
-export function withSecurityHeaders(init: ResponseInit = {}) {
+export function withSecurityHeaders(init: ResponseInit = {}, rateLimitInfo?: { limit: number; remaining: number; resetAt: number }) {
   const headers = new Headers(init.headers);
-  headers.set("Cache-Control", "no-store, max-age=0");
+  headers.set("Cache-Control", "no-store, no-cache, max-age=0");
   headers.set("Content-Type", "application/json; charset=utf-8");
   headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+
+  if (rateLimitInfo) {
+    headers.set("RateLimit-Limit", String(rateLimitInfo.limit));
+    headers.set("RateLimit-Remaining", String(Math.max(0, rateLimitInfo.remaining)));
+    headers.set("RateLimit-Reset", String(Math.ceil(rateLimitInfo.resetAt / 1000)));
+  }
 
   return { ...init, headers };
 }
@@ -99,11 +107,17 @@ export function requireCsrfToken(request: Request): boolean {
     .find(c => c.startsWith("csrf-token="))
     ?.split("=")[1];
 
-  if (!headerToken || !cookieToken) {
+  if (!headerToken || !cookieToken) return false;
+
+  // Timing-safe comparison prevents token enumeration via timing side-channel
+  try {
+    const a = Buffer.from(headerToken, "utf8");
+    const b = Buffer.from(cookieToken, "utf8");
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
     return false;
   }
-
-  return headerToken === cookieToken;
 }
 
 export async function readJsonBody(request: Request, maxBytes: number) {
