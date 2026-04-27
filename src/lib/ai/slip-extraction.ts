@@ -45,6 +45,7 @@ export async function processSlipImage(
   base64Image: string,
   mimeType: string,
 ): Promise<SlipExtractionResult> {
+  const startTime = Date.now();
   const apiKey = process.env.NVIDIA_API_KEY;
   const baseUrl = process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1";
   
@@ -55,6 +56,8 @@ export async function processSlipImage(
     throw new Error("NVIDIA_API_KEY is not configured");
   }
 
+  console.log(`[ai-process] starting vision OCR with ${visionModel}`);
+  const visionStart = Date.now();
   const visionResponse = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
@@ -87,6 +90,8 @@ export async function processSlipImage(
   });
 
   const visionBody = await visionResponse.json().catch(() => null) as NvidiaChatResponse | null;
+  const visionEnd = Date.now();
+  console.log(`[ai-process] vision OCR completed in ${visionEnd - visionStart}ms`);
 
   if (!visionResponse.ok) {
     const message = visionBody?.error?.message ?? `NVIDIA vision OCR failed with HTTP ${visionResponse.status}`;
@@ -100,7 +105,14 @@ export async function processSlipImage(
   }
 
   // 2. Extract JSON with DeepSeek V4 Flash
-  return extractSlipTextWithNvidiaDeepSeek(rawText);
+  console.log(`[ai-process] starting DeepSeek JSON extraction`);
+  const deepseekStart = Date.now();
+  const result = await extractSlipTextWithNvidiaDeepSeek(rawText);
+  const deepseekEnd = Date.now();
+  console.log(`[ai-process] DeepSeek JSON extraction completed in ${deepseekEnd - deepseekStart}ms`);
+  
+  console.log(`[ai-process] total time: ${Date.now() - startTime}ms`);
+  return result;
 }
 
 export async function extractSlipTextWithNvidiaDeepSeek(
