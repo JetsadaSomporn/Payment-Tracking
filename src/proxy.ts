@@ -57,25 +57,28 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // 1. Update the underlying request cookies so downstream has them
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
           
-          // Recreate response, but preserve the modified cookies
+          // 2. Recreate the response to include updated request state
           supabaseResponse = NextResponse.next({
             request,
           });
           
-          // Copy over our custom headers to the new response
+          // 3. Re-apply custom security headers
           supabaseResponse.headers.set("x-nonce", nonce);
           supabaseResponse.headers.set("Content-Security-Policy", csp);
           supabaseResponse.headers.set("x-csrf-token", csrfToken);
           
+          // 4. Force write cookies to response with browser-accessible settings
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
               sameSite: "lax",
-              httpOnly: false,
+              httpOnly: false, // CRITICAL: Must be false for createBrowserClient to work
+              secure: !isDev,
             }),
           );
         },

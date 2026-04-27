@@ -45,21 +45,19 @@ export async function processSlipImage(
   base64Image: string,
   mimeType: string,
 ): Promise<SlipExtractionResult> {
-  const startTime = Date.now();
   const apiKey = process.env.NVIDIA_API_KEY;
   const baseUrl = process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1";
-  
-  // Use a capable vision model that can also output JSON
-  const visionModel = "meta/llama-3.2-11b-vision-instruct";
   
   if (!apiKey || apiKey.includes("...") || apiKey.startsWith("replace-")) {
     throw new Error("NVIDIA_API_KEY is not configured");
   }
 
-  console.log(`[ai-process] starting unified vision extraction with ${visionModel}`);
-  const visionStart = Date.now();
+  // ── STEP 1: OCR with small vision model ─────────────────────────────────
+  // Use Llama 3.2 Vision to just get the raw text from the image
+  const visionModel = "meta/llama-3.2-11b-vision-instruct";
+  console.log(`[ai-process] STEP 1: Vision OCR with ${visionModel}`);
   
-  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+  const visionResponse = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -73,7 +71,7 @@ export async function processSlipImage(
           content: [
             {
               type: "text",
-              text: "Extract Thai bank slip data into JSON format. Return ONLY the JSON object. Fields: document_type (thai_bank_slip|receipt|unknown), bank_name, status (success|failed), amount (number), fee (number), currency (THB), transaction_date_iso (YYYY-MM-DD), transaction_time (HH:mm), sender_name, receiver_name, reference_no, confidence (0-1).",
+              text: "Extract all text from this Thai bank slip. Output only the raw text found in the image.",
             },
             {
               type: "image_url",
@@ -85,42 +83,22 @@ export async function processSlipImage(
         }
       ],
       max_tokens: 1024,
-      temperature: 0.1,
+      temperature: 0.2,
     }),
   });
 
-  const body = await response.json().catch(() => null) as NvidiaChatResponse | null;
-  const visionEnd = Date.now();
-  console.log(`[ai-process] unified extraction completed in ${visionEnd - visionStart}ms`);
-
-  if (!response.ok) {
-    const message = body?.error?.message ?? `NVIDIA unified extraction failed with HTTP ${response.status}`;
-    throw new Error(message);
+  const visionBody = await visionResponse.json().catch(() => null) as NvidiaChatResponse | null;
+  if (!visionResponse.ok) {
+    throw new Error(visionBody?.error?.message ?? `Vision OCR failed (${visionResponse.status})`);
   }
 
-  const content = body?.choices?.[0]?.message?.content;
+  const rawText = visionBody?.choices?.[0]?.message?.content;
+  if (!rawText) throw new Error("Vision OCR returned no text");
 
-  if (!content) {
-    throw new Error("NVIDIA unified extraction returned no content");
-  }
-
-  try {
-    const jsonStr = content.includes("```json") 
-      ? content.split("```json")[1].split("```")[0] 
-      : content;
-    
-    const parsed = slipExtractionSchema.parse({
-      ...parseJsonObject(jsonStr),
-      raw_text: "Unified vision extraction used",
-    });
-    
-    console.log(`[ai-process] total time: ${Date.now() - startTime}ms`);
-    return toSlipExtractionResult(parsed);
-  } catch (err) {
-    console.error("[ai-process] JSON parse failed, falling back to legacy two-step...");
-    // Fallback logic if needed or just throw
-    throw new Error("Failed to parse AI response into valid slip data");
-  }
+  // ── STEP 2: JSON Extraction with DeepSeek V4 Flash ──────────────────────
+  // Use DeepSeek to organize the raw text into our specific JSON schema
+  console.log(`[ai-process] STEP 2: DeepSeek Extraction`);
+  return extractSlipTextWithNvidiaDeepSeek(rawText);
 }
 
 export async function extractSlipTextWithNvidiaDeepSeek(
