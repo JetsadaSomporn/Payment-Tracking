@@ -41,9 +41,13 @@ export async function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
   requestHeaders.set("x-csrf-token", csrfToken);
 
-  let response = NextResponse.next({ request: { headers: requestHeaders } });
-
   // ── Supabase Session Refresh ──────────────────────────────────────────────
+  let supabaseResponse = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -53,16 +57,22 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({
-            request: {
-              headers: requestHeaders,
-            },
+          
+          // Recreate response, but preserve the modified cookies
+          supabaseResponse = NextResponse.next({
+            request,
           });
+          
+          // Copy over our custom headers to the new response
+          supabaseResponse.headers.set("x-nonce", nonce);
+          supabaseResponse.headers.set("Content-Security-Policy", csp);
+          supabaseResponse.headers.set("x-csrf-token", csrfToken);
+          
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, options),
           );
         },
       },
@@ -72,13 +82,14 @@ export async function proxy(request: NextRequest) {
   // This will refresh the session if it's expired
   await supabase.auth.getUser();
 
-  response.headers.set("Content-Security-Policy", csp);
-  response.headers.append(
-    "Set-Cookie",
-    `csrf-token=${csrfToken}; Path=/; SameSite=Lax;${isDev ? "" : " Secure"}`,
-  );
+  supabaseResponse.headers.set("Content-Security-Policy", csp);
+  supabaseResponse.cookies.set("csrf-token", csrfToken, {
+    path: "/",
+    sameSite: "lax",
+    secure: !isDev,
+  });
 
-  return response;
+  return supabaseResponse;
 }
 
 export const config = {

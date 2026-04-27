@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -33,12 +34,31 @@ export async function GET(request: NextRequest) {
   // Verify user immediately after exchange
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   
+  // Debug cookies after exchange
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  
   console.log("[auth-callback] exchange result", {
     exchangeSuccess: !!exchangeData.session,
     hasUser: !!user,
-    userError: userError?.message || null
+    userError: userError?.message || null,
+    cookiesSet: allCookies.map(c => c.name).filter(n => n.includes('sb-'))
   });
 
   console.log("[auth-callback] final redirect to:", next);
-  return NextResponse.redirect(`${origin}${next}`);
+  const response = NextResponse.redirect(`${origin}${next}`);
+  
+  // Guarantee cookies are transferred to the redirect response
+  allCookies.forEach(c => {
+    if (c.name.startsWith('sb-')) {
+      response.cookies.set(c.name, c.value, {
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV !== 'development',
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+      });
+    }
+  });
+
+  return response;
 }

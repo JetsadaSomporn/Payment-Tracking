@@ -107,6 +107,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const [message, setMessage] = useState<string | null>(null);
   const [authLabel, setAuthLabel] = useState("Not signed in");
   const [userMeta, setUserMeta] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const today = todayBangkokDate();
@@ -150,18 +151,26 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     }
 
     window.localStorage.removeItem(localTransactionsKey);
-    supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
+    console.log("[auth] initial session loading started");
+    
+    supabase.auth.getUser().then(({ data, error }: { data: { user: User | null }, error: any }) => {
+      console.log("[auth] getUser result:", { userFound: !!data.user, error: error?.message });
       if (data.user?.email) setAuthLabel(data.user.email);
       if (data.user?.user_metadata) setUserMeta(data.user.user_metadata);
     });
-    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+    
+    supabase.auth.getSession().then(({ data, error }: { data: { session: Session | null }, error: any }) => {
+      console.log("[auth] getSession result:", { sessionFound: !!data.session, error: error?.message });
       if (data.session) {
         void loadTransactions();
       }
     });
+    
     const { data: l } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, s: Session | null) => {
+      console.log("[auth] auth state changed:", _e, { sessionFound: !!s });
       setAuthLabel(s?.user.email ?? "ยังไม่ได้ login");
       setUserMeta(s?.user?.user_metadata ?? null);
+      setIsLoadingAuth(false);
       if (s) {
         void loadTransactions();
       } else {
@@ -297,7 +306,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   }
 
   const ctx: AppCtx = {
-    authLabel, userMeta, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
+    authLabel, userMeta, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
     periodSummary, previewUrl, selectedFile, setDraft, summary, todayTx, transactions,
     handleFileChange, handleGoogleLogin, processSlip, saveTransaction,
   };
@@ -348,6 +357,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
 type AppCtx = {
   authLabel: string;
   userMeta: { full_name?: string; avatar_url?: string } | null;
+  isLoadingAuth: boolean;
   catTotals: Array<{ category: string; amount: number }>;
   draft: DraftTransaction;
   extractedSlip: SlipExtractionResult | null;
@@ -457,7 +467,9 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
           <Search size={16} />
         </button>
         
-        {isAuthenticated ? (
+        {ctx.isLoadingAuth ? (
+          <div className="w-8 h-8 rounded-full bg-[var(--line)] animate-pulse ml-1" />
+        ) : isAuthenticated ? (
           ctx.userMeta?.avatar_url ? (
             <img 
               src={ctx.userMeta.avatar_url} 
