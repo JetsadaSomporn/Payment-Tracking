@@ -32,6 +32,7 @@ export async function createSupabaseServerClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, {
                 ...options,
+                path: "/",
                 sameSite: "lax",
                 httpOnly: false,
               })
