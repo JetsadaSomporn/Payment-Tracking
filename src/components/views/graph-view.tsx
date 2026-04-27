@@ -112,15 +112,12 @@ export default function GraphView({ transactions }: { transactions: Transaction[
     return () => canvas.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Stable render loop — reads all state from refs, never restarts
+  // Stable render loop — restarts when canvas re-mounts (key changes)
   useEffect(() => {
     const canvas = canvasRef.current;
-    console.log("[graph-view] render loop init", { hasCanvas: !!canvas, hasContainer: !!containerRef.current });
     if (!canvas) return;
-    // Always draw at least once on (re)mount — fixes React StrictMode
-    // double-invoke where prevLayoutKeyRef blocks the layout effect's
-    // second run, leaving dirtyRef false when the loop restarts.
     dirtyRef.current = true;
+    // Always draw at least once on (re)moun
 
     const draw = () => {
       rafRef.current = requestAnimationFrame(draw);
@@ -357,17 +354,14 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   const nodeCount = layoutNodesRef.current.length;
   const edgeCount = edgesRef.current.length;
 
-  if (transactions.length === 0) {
-    return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-[#0d0d10] text-center">
-        <div className="text-white/20 text-[13px]">No transactions to graph yet</div>
-        <div className="text-white/12 text-[11px]">Upload a slip to see your spending network</div>
-      </div>
-    );
-  }
-
   return (
     <div ref={containerRef} className="relative w-full select-none">
+      {transactions.length === 0 && (
+        <div className="absolute inset-0 z-10 flex min-h-[400px] flex-col items-center justify-center gap-3 rounded-xl bg-[#0d0d10] text-center">
+          <div className="text-white/20 text-[13px]">No transactions to graph yet</div>
+          <div className="text-white/12 text-[11px]">Upload a slip to see your spending network</div>
+        </div>
+      )}
       <canvas
         ref={canvasRef}
         style={{ width: size.width, height: size.height, cursor: "grab" }}

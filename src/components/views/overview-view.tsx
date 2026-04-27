@@ -9,75 +9,96 @@ interface Props {
 }
 
 export default function OverviewView({ transactions, periodSummary }: Props) {
-  const summary = periodSummary.day;
-  if (!summary) return null;
+  const today = periodSummary.day;
+  const week = periodSummary.week;
+  const month = periodSummary.month;
 
   return (
     <div className="grid gap-4">
-      {/* Hero Card */}
-      <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-neutral-900 to-neutral-950 p-5 sm:p-7">
-        <PeriodToggle />
-        
-        <div className="mt-5 flex items-baseline gap-1">
-          <span className="text-[32px] font-bold tracking-tight text-white">
-            ฿{summary.totalExpense.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <div className="app-hero-panel overflow-hidden p-5 sm:p-7 lg:p-9">
+        <div className="flex items-center justify-between mb-5">
+          <PeriodToggle />
+          <span className="text-[11px] text-[var(--text-muted)]">
+            {new Intl.DateTimeFormat("th-TH", {
+              day: "numeric", month: "long", year: "numeric",
+              timeZone: "Asia/Bangkok",
+            }).format(new Date())}
           </span>
-          <span className="text-sm text-white/30">วันนี้</span>
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {[
-            { label: "รายรับ", value: summary.totalIncome, color: "text-emerald-400" },
-            { label: "คงเหลือ", value: summary.netAmount, color: "text-white/60" },
-            { label: "รายการ", value: summary.transactionCount, color: "text-white/40", isCount: true },
-          ].map((m) => (
-            <div key={m.label} className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
-              <div className="text-[11px] text-white/30">{m.label}</div>
-              <div className={`mt-1 text-lg font-semibold ${m.color}`}>
-                {m.isCount ? m.value : `฿${m.value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`}
-              </div>
-            </div>
-          ))}
+        <div className="flex items-baseline gap-1">
+          <span className="app-hero-currency">฿</span>
+          <span className="hero-amount">
+            {(today?.totalExpense ?? 0).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+          </span>
         </div>
 
-        {summary.topCategory && (
-          <div className="mt-4 flex items-center gap-2 text-sm text-white/40">
-            <span>อันดับ 1:</span>
-            <span className="font-medium text-white/70">{summary.topCategory}</span>
-            <span className="text-white/20">·</span>
-            <span>{summary.insight}</span>
-          </div>
-        )}
+        <div className="mt-3 flex items-center gap-4 text-sm text-[var(--text-secondary)]">
+          {today ? (
+            <span>{today.transactionCount} รายการวันนี้</span>
+          ) : (
+            <span>ยังไม่มีรายการวันนี้</span>
+          )}
+          {today?.topCategory && (
+            <>
+              <span className="text-[var(--border-subtle)]">·</span>
+              <span>อันดับ 1: {today.topCategory}</span>
+            </>
+          )}
+        </div>
+
+        {/* Mini metric row */}
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          <MiniMetric label="รายรับ" value={today?.totalIncome ?? 0} color="var(--income)" />
+          <MiniMetric label="สุทธิ" value={today?.netAmount ?? 0} color="var(--text-secondary)" />
+          <MiniMetric label="รายการ" value={today?.transactionCount ?? 0} isCount />
+        </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* ── Week / Month summary cards ────────────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <QuickCard label="สัปดาห์นี้" summary={periodSummary.week} />
-        <QuickCard label="เดือนนี้" summary={periodSummary.month} />
+        <SummaryCard label="สัปดาห์นี้" summary={week} />
+        <SummaryCard label="เดือนนี้" summary={month} />
       </div>
     </div>
   );
 }
 
-function QuickCard({ label, summary }: { label: string; summary: DailySummary | undefined }) {
+function MiniMetric({ label, value, color, isCount }: { label: string; value: number; color?: string; isCount?: boolean }) {
+  return (
+    <div className="metric-tile">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</div>
+      <div className="metric-value" style={color && !isCount ? { color } : undefined}>
+        {isCount ? value : `฿${value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`}
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ label, summary }: { label: string; summary: DailySummary | undefined }) {
   if (!summary || summary.transactionCount === 0) {
     return (
-      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-        <div className="text-[11px] text-white/30">{label}</div>
-        <div className="mt-2 text-sm text-white/20">ยังไม่มีรายการ</div>
+      <div className="period-card">
+        <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</div>
+        <div className="mt-3 text-sm text-[var(--text-disabled)]">ยังไม่มีรายการ</div>
       </div>
     );
   }
-
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-      <div className="text-[11px] text-white/30">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-white/80">
+    <div className="period-card">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">{label}</div>
+      <div className="mt-2 text-xl font-semibold tracking-tight">
         ฿{summary.totalExpense.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
       </div>
-      <div className="mt-1 flex gap-3 text-[11px] text-white/25">
+      <div className="mt-1.5 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
         <span>{summary.transactionCount} รายการ</span>
-        {summary.topCategory && <span>· {summary.topCategory}</span>}
+        {summary.topCategory && (
+          <>
+            <span className="text-[var(--border-subtle)]">·</span>
+            <span>{summary.topCategory}</span>
+          </>
+        )}
       </div>
     </div>
   );
