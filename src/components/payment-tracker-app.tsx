@@ -33,6 +33,7 @@ import {
   ScanLine,
   Search,
   Settings,
+  Share2,
   ShieldCheck,
   Sparkles,
   TrendingUp,
@@ -46,9 +47,13 @@ import type { SlipExtractionResult, Transaction } from "@/lib/types";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { SpendingChart } from "./SpendingChart";
 import { useAuth } from "@/providers/auth-provider";
+import GraphView from "@/components/views/graph-view";
+import OverviewView from "@/components/views/overview-view";
+import TimelineView from "@/components/views/timeline-view";
 
 export type PaymentTrackerView =
   | "dashboard"
+  | "graph"
   | "upload"
   | "transactions"
   | "insights"
@@ -81,8 +86,9 @@ const navItems: Array<{
   icon: ReactNode;
 }> = [
   { href: "/app", label: "Today", view: "dashboard", icon: <Home size={16} strokeWidth={2} /> },
+  { href: "/graph", label: "Graph", view: "graph", icon: <Share2 size={16} strokeWidth={2} /> },
   { href: "/upload", label: "Upload", view: "upload", icon: <UploadCloud size={16} strokeWidth={2} /> },
-  { href: "/transactions", label: "Transactions", view: "transactions", icon: <ReceiptText size={16} strokeWidth={2} /> },
+  { href: "/transactions", label: "Timeline", view: "transactions", icon: <ReceiptText size={16} strokeWidth={2} /> },
   { href: "/insights", label: "Insights", view: "insights", icon: <Sparkles size={16} strokeWidth={2} /> },
   { href: "/settings", label: "Settings", view: "settings", icon: <Settings size={16} strokeWidth={2} /> },
 ];
@@ -338,9 +344,10 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
                   {message}
                 </p>
               )}
-              {initialView === "dashboard"     && <DashboardView ctx={ctx} />}
+              {initialView === "dashboard"     && <OverviewView transactions={transactions} periodSummary={periodSummary} />}
+              {initialView === "graph"         && <GraphView transactions={transactions} />}
               {initialView === "upload"        && <UploadView ctx={ctx} />}
-              {initialView === "transactions"  && <TransactionsView ctx={ctx} />}
+              {initialView === "transactions"  && <TimelineView transactions={transactions} />}
               {initialView === "insights"      && <InsightsView ctx={ctx} />}
               {initialView === "settings"      && <SettingsView ctx={ctx} />}
             </div>
