@@ -120,8 +120,8 @@ export async function proxy(request: NextRequest) {
   applySecurityHeaders(supabaseResponse, csp, isDev);
   supabaseResponse.cookies.set("csrf-token", csrfToken, {
     path: "/",
-    sameSite: "lax",
-    httpOnly: true,
+    sameSite: "strict",
+    httpOnly: false, // must be JS-readable for double-submit CSRF pattern
     secure: !isDev,
   });
 
