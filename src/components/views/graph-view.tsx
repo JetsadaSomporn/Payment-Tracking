@@ -111,6 +111,10 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Always draw at least once on (re)mount — fixes React StrictMode
+    // double-invoke where prevLayoutKeyRef blocks the layout effect's
+    // second run, leaving dirtyRef false when the loop restarts.
+    dirtyRef.current = true;
 
     const draw = () => {
       rafRef.current = requestAnimationFrame(draw);
