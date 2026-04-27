@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
 import type { Transaction, DailySummary } from "@/lib/types";
-import { formatTHB } from "@/lib/money";
 import PeriodToggle from "@/components/period-toggle";
 
 interface Props {
@@ -11,11 +9,6 @@ interface Props {
 }
 
 export default function OverviewView({ transactions, periodSummary }: Props) {
-  const [period, setPeriod] = useMemo(() => {
-    // Intentionally empty — PeriodToggle manages its own state
-    return ["day"] as const;
-  }, []);
-
   const summary = periodSummary.day;
   if (!summary) return null;
 
