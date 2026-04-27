@@ -6,10 +6,15 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/app";
 
-  console.log("Auth callback received:", { code: code ? "exists" : "missing", origin, next });
+  // ── Production Debug Logs ───────────────────────────────────────────────
+  console.log("[auth-callback] hit", { 
+    origin, 
+    hasCode: !!code,
+    next 
+  });
 
   if (!code) {
-    console.error("Auth callback error: missing code");
+    console.error("[auth-callback] error: missing code");
     return NextResponse.redirect(`${origin}/app?auth_error=missing_code`);
   }
 
@@ -18,10 +23,10 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     const errorMessage = error?.message || "unknown_error";
-    console.error("Auth callback error during code exchange:", errorMessage);
+    console.error("[auth-callback] exchange error:", errorMessage);
     return NextResponse.redirect(`${origin}/app?auth_error=${encodeURIComponent(errorMessage)}`);
   }
 
-  console.log("Auth callback success, redirecting to:", next);
+  console.log("[auth-callback] success, redirecting to:", next);
   return NextResponse.redirect(`${origin}${next}`);
 }

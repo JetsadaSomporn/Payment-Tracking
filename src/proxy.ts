@@ -2,6 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ── Bypass Auth Callback ────────────────────────────────────────────────
+  // Prevent proxy/middleware from running getUser() which refreshes session 
+  // using OLD cookies before the callback route can exchange the NEW code.
+  if (pathname.startsWith("/auth/callback")) {
+    return NextResponse.next();
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csrfToken = crypto.randomUUID();
   const isDev = process.env.NODE_ENV === "development";
