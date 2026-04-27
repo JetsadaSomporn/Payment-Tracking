@@ -106,6 +106,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [authLabel, setAuthLabel] = useState("Not signed in");
+  const [userMeta, setUserMeta] = useState<{ full_name?: string; avatar_url?: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const today = todayBangkokDate();
@@ -151,6 +152,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     window.localStorage.removeItem(localTransactionsKey);
     supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       if (data.user?.email) setAuthLabel(data.user.email);
+      if (data.user?.user_metadata) setUserMeta(data.user.user_metadata);
     });
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       if (data.session) {
@@ -159,6 +161,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     });
     const { data: l } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, s: Session | null) => {
       setAuthLabel(s?.user.email ?? "ยังไม่ได้ login");
+      setUserMeta(s?.user?.user_metadata ?? null);
       if (s) {
         void loadTransactions();
       } else {
@@ -294,7 +297,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   }
 
   const ctx: AppCtx = {
-    authLabel, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
+    authLabel, userMeta, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
     periodSummary, previewUrl, selectedFile, setDraft, summary, todayTx, transactions,
     handleFileChange, handleGoogleLogin, processSlip, saveTransaction,
   };
@@ -344,6 +347,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
 }
 type AppCtx = {
   authLabel: string;
+  userMeta: { full_name?: string; avatar_url?: string } | null;
   catTotals: Array<{ category: string; amount: number }>;
   draft: DraftTransaction;
   extractedSlip: SlipExtractionResult | null;
@@ -395,7 +399,7 @@ function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
           </p>
         </div>
         <div className="rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-2.5">
-          <p className="text-[12px] font-medium">{ctx.authLabel}</p>
+          <p className="text-[12px] font-medium truncate">{ctx.userMeta?.full_name || ctx.authLabel}</p>
           <p className="mt-0.5 text-[11px] text-[var(--muted)]">
             {ctx.hasSupabase ? "Supabase connected" : "Local development"}
           </p>
@@ -454,9 +458,17 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
         </button>
         
         {isAuthenticated ? (
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)] text-white font-semibold text-sm shadow-sm cursor-pointer ml-1">
-            {userInitial}
-          </div>
+          ctx.userMeta?.avatar_url ? (
+            <img 
+              src={ctx.userMeta.avatar_url} 
+              alt={ctx.userMeta.full_name || ctx.authLabel} 
+              className="w-8 h-8 rounded-full border border-[var(--line)] shadow-sm ml-1 object-cover" 
+            />
+          ) : (
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)] text-white font-semibold text-sm shadow-sm cursor-pointer ml-1">
+              {userInitial}
+            </div>
+          )
         ) : (
           <button className="primary-button text-[13px] sm:text-sm px-2.5 sm:px-3.5" onClick={onLogin} type="button">
             <LogIn size={15} />
