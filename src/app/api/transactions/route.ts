@@ -144,8 +144,71 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
+    console.error("[transactions:POST] supabase insert error", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+
     if (error.code === "23505") {
       return jsonError("duplicate transaction", 409);
+    }
+
+    // Profile might not exist yet — try to create one and retry
+    if (error.code === "23503" && error.message?.includes("profiles")) {
+      console.log("[transactions:POST] profile missing, attempting auto-create...");
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert({
+          id: auth.user.id,
+          email: auth.user.email,
+          display_name: auth.user.email?.split("@")[0] ?? null,
+        }, { onConflict: "id" });
+
+      if (!profileError) {
+        // Retry the insert
+        const { data: retryData, error: retryError } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: auth.user.id,
+            type: parsed.data.type,
+            amount: parsed.data.amount,
+            fee: parsed.data.fee,
+            currency: "THB",
+            title: protectedFields.value.title,
+            ai_category: parsed.data.categoryName,
+            transaction_date: parsed.data.transactionDate,
+            transaction_time: parsed.data.transactionTime || null,
+            bank_name: protectedFields.value.bankName,
+            receiver_name: protectedFields.value.receiverName,
+            reference_no: protectedFields.value.referenceNo,
+            reference_no_hash: protectedFields.value.referenceNoHash,
+            source: "slip",
+            status: "confirmed",
+          })
+          .select(
+            "id,type,amount,fee,currency,title,ai_category,bank_name,receiver_name,reference_no,transaction_date,transaction_time,source,created_at",
+          )
+          .single();
+
+        if (!retryError) {
+          return jsonOk({
+            ok: true,
+            transaction: mapTransactionRow(retryData, auth.user.id),
+          });
+        }
+
+        console.error("[transactions:POST] retry after profile create failed", {
+          code: retryError.code,
+          message: retryError.message,
+        });
+      } else {
+        console.error("[transactions:POST] profile auto-create failed", {
+          code: profileError.code,
+          message: profileError.message,
+        });
+      }
     }
 
     return jsonError("transaction save failed", 500);
