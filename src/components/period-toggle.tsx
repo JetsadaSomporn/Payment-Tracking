@@ -23,16 +23,12 @@ export default function PeriodToggle() {
   };
 
   return (
-    <div className="inline-flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
+    <div className="period-toggle">
       {periods.map((p) => (
         <button
           key={p.key}
           onClick={() => setPeriod(p.key)}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            current === p.key
-              ? "bg-white/10 text-white"
-              : "text-white/30 hover:text-white/60"
-          }`}
+          className={`period-btn${current === p.key ? " is-active" : ""}`}
         >
           {p.label}
         </button>
