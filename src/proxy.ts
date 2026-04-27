@@ -4,7 +4,18 @@ import { NextRequest, NextResponse } from "next/server";
 // Short-lived session cache — avoids Supabase API roundtrip on every page load
 // Reduces latency ~50-200ms per request while keeping security intact
 const CACHE_TTL = 10_000;
+const MAX_CACHE_ENTRIES = 5_000;
 const sessionCache = new Map<string, number>();
+
+function setSessionCache(key: string, value: number) {
+  if (sessionCache.size >= MAX_CACHE_ENTRIES) {
+    const firstKey = sessionCache.keys().next().value;
+    if (firstKey !== undefined) {
+      sessionCache.delete(firstKey);
+    }
+  }
+  sessionCache.set(key, value);
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

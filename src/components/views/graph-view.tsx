@@ -43,7 +43,11 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   const rafRef = useRef(0);
 
   // Graph data
-  const { nodes, edges } = useMemo(() => buildGraph(transactions), [transactions]);
+  const { nodes, edges } = useMemo(() => {
+    const result = buildGraph(transactions);
+    console.log("[graph-view] buildGraph", { txCount: transactions.length, nodeCount: result.nodes.length, edgeCount: result.edges.length, expenseTx: transactions.filter(t => t.type === "expense").length });
+    return result;
+  }, [transactions]);
   const maxValue = useMemo(() => Math.max(...nodes.map((n) => n.value), 1), [nodes]);
 
   // Sync refs
@@ -57,6 +61,7 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   const layoutKey = useMemo(() => nodes.map((n) => n.id).sort().join("|"), [nodes]);
   const prevLayoutKeyRef = useRef("");
   useEffect(() => {
+    console.log("[graph-view] layout effect", { layoutKey, prev: prevLayoutKeyRef.current, nodeCount: nodes.length, edgeCount: edgesRef.current.length, size: sizeRef.current });
     if (layoutKey === prevLayoutKeyRef.current) return;
     prevLayoutKeyRef.current = layoutKey;
     const { width: W, height: H } = sizeRef.current;
@@ -110,6 +115,7 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   // Stable render loop — reads all state from refs, never restarts
   useEffect(() => {
     const canvas = canvasRef.current;
+    console.log("[graph-view] render loop init", { hasCanvas: !!canvas, hasContainer: !!containerRef.current });
     if (!canvas) return;
     // Always draw at least once on (re)mount — fixes React StrictMode
     // double-invoke where prevLayoutKeyRef blocks the layout effect's
