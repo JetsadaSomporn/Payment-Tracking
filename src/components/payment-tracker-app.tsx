@@ -50,6 +50,7 @@ import { useAuth } from "@/providers/auth-provider";
 import GraphView from "@/components/views/graph-view";
 import OverviewView from "@/components/views/overview-view";
 import TimelineView from "@/components/views/timeline-view";
+import UploadView from "@/components/views/upload-view";
 
 export type PaymentTrackerView =
   | "dashboard"
@@ -378,7 +379,7 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
     </main>
   );
 }
-type AppCtx = {
+export type AppCtx = {
   authLabel: string;
   userMeta: { full_name?: string; avatar_url?: string } | null;
   user: User | null;
@@ -641,102 +642,9 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
     </div>
   );
 }
-function UploadView({ ctx }: { ctx: AppCtx }) {
-  return (
-    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="surface p-5 sm:p-6">
-        <SectionHead icon={<UploadCloud size={16} />} title="Slip intake" />
-        <div className="mt-5 flex gap-2">
-          {[
-            { done: Boolean(ctx.selectedFile), icon: <FileCheck2 size={13} />, label: "File" },
-            { done: Boolean(ctx.extractedSlip), icon: <ScanLine size={13} />, label: "Extracted" },
-            { done: false, icon: <ShieldCheck size={13} />, label: "Confirmed" },
-          ].map((s, i) => (
-            <div
-              key={s.label}
-              className={`flex flex-1 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
-                s.done
-                  ? "border-[var(--good)]/30 bg-[var(--good)]/8 text-[var(--foreground)]"
-                  : i === 0
-                    ? "border-[var(--line)] bg-[var(--soft)] text-[var(--muted)]"
-                    : "border-[var(--line)] text-[var(--muted)] opacity-50"
-              }`}
-            >
-              {s.icon} {s.label}
-            </div>
-          ))}
-        </div>
-
-        <label className="upload-stage mt-5 flex min-h-[250px] flex-col items-center justify-center p-4 sm:p-6 sm:min-h-[400px] text-center">
-          {ctx.previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt="Slip preview" className="max-h-[360px] rounded-lg object-contain shadow-md" src={ctx.previewUrl} />
-          ) : (
-            <div className="flex flex-col items-center gap-4">
-              <div className="grid size-12 place-items-center rounded-xl border border-[var(--line)] bg-[var(--panel)] text-[var(--muted)]">
-                <UploadCloud size={20} />
-              </div>
-              <div>
-                <p className="font-semibold">ลากสลิปมาวาง หรือคลิกเลือกไฟล์</p>
-                <p className="mt-1 text-[13px] text-[var(--muted)]">JPG, PNG, WEBP · สูงสุด 8MB</p>
-              </div>
-            </div>
-          )}
-          <input accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={ctx.handleFileChange} type="file" />
-        </label>
-
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <p className="text-[13px] text-[var(--muted)]">
-            {ctx.selectedFile ? `${ctx.selectedFile.name} · ${(ctx.selectedFile.size / 1024).toFixed(0)} KB` : "ยังไม่ได้เลือกไฟล์"}
-          </p>
-          <button className="primary-button" disabled={!ctx.selectedFile || ctx.isProcessing} onClick={ctx.processSlip} type="button">
-            <Bot size={15} />
-            {ctx.isProcessing ? "กำลังอ่าน…" : "อ่านสลิป"}
-          </button>
-        </div>
-      </div>
-      <form className="surface p-5 sm:p-6" onSubmit={ctx.saveTransaction}>
-        <SectionHead icon={<CheckCircle2 size={16} />} title="Review & confirm" />
-        <SlipFacts slip={ctx.extractedSlip} />
-        <ConfWarn slip={ctx.extractedSlip} />
-
-        <div className="mt-5 space-y-3">
-          <Field label="จ่ายอะไรไป">
-            <input className="field" onChange={(e) => ctx.setDraft({ ...ctx.draft, title: e.target.value })} placeholder="เช่น ค่าบริการ 123 เซอร์วิส" value={ctx.draft.title} />
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="จำนวนเงิน (บาท)">
-              <input className="field font-figures" inputMode="decimal" onChange={(e) => ctx.setDraft({ ...ctx.draft, amount: e.target.value })} value={ctx.draft.amount} />
-            </Field>
-            <Field label="ค่าธรรมเนียม">
-              <input className="field font-figures" inputMode="decimal" onChange={(e) => ctx.setDraft({ ...ctx.draft, fee: e.target.value })} value={ctx.draft.fee} />
-            </Field>
-          </div>
-          <Field label="หมวดหมู่">
-            <select className="field" onChange={(e) => ctx.setDraft({ ...ctx.draft, categoryName: e.target.value })} value={ctx.draft.categoryName}>
-              {categories.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="วันที่">
-              <input className="field" onChange={(e) => ctx.setDraft({ ...ctx.draft, transactionDate: e.target.value })} type="date" value={ctx.draft.transactionDate} />
-            </Field>
-            <Field label="เวลา">
-              <input className="field" onChange={(e) => ctx.setDraft({ ...ctx.draft, transactionTime: e.target.value })} type="time" value={ctx.draft.transactionTime} />
-            </Field>
-          </div>
-        </div>
-
-        <button className="primary-button mt-5 w-full justify-center" disabled={!ctx.extractedSlip} type="submit">
-          <ShieldCheck size={15} />
-          บันทึกรายจ่าย
-        </button>
-      </form>
-    </section>
-  );
 }
+
 function TransactionsView({ ctx }: { ctx: AppCtx }) {
-  const [category, setCategory] = useState("all");
   const [period, setPeriod] = useState<PeriodKey | "all">("month");
   const filteredTransactions = useMemo(
     () =>
