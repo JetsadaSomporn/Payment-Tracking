@@ -52,13 +52,6 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
       },
-      {
-        // Static assets can be cached aggressively — Next.js content-hashes filenames
-        source: "/_next/static/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
     ];
   },
 };
