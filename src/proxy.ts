@@ -21,12 +21,13 @@ export async function proxy(request: NextRequest) {
     `style-src 'self' 'unsafe-inline'`,
     "img-src 'self' blob: data:",
     "font-src 'self'",
-    `connect-src 'self' https://*.supabase.co https://*.nvidia.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com`,
+    `connect-src 'self' https://*.supabase.co https://*.nvidia.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://*.google.com`,
     "worker-src 'self' blob: https://cdn.jsdelivr.net",
     "object-src 'none'",
     "base-uri 'self'",
     `form-action 'self' https://*.supabase.co https://accounts.google.com`,
     "frame-ancestors 'none'",
+    "frame-src 'self' https://*.google.com",
   ];
 
   if (!isDev) {
@@ -82,13 +83,14 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    {
-      source:
-        "/((?!api|_next/static|_next/image|favicon.ico).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public assets
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
