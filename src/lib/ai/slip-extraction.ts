@@ -221,15 +221,38 @@ function parseJsonObject(content: string) {
     try {
       return JSON.parse(cleanContent);
     } catch (e) {
-      // 3. AI sent "JS Object" style (no quotes on keys). Let's try to fix it.
-      // This regex attempts to add double quotes to unquoted keys
-      const fixedJson = cleanContent
-        .replace(/(['"])?([a-z0-9A-Z_]+)(['"])?:/g, '"$2":')
-        .replace(/'/g, '"');
-      return JSON.parse(fixedJson);
+      console.log("[ai-process] Standard JSON.parse failed, trying fallback extraction...");
+      
+      // 3. Fallback: Regex-based field extraction (Smart Extractor)
+      // This is practically indestructible against AI formatting quirks
+      const extract = (key: string) => {
+        const regex = new RegExp(`"?${key}"?\\s*:\\s*(?:"([^"]*)"|'([^']*)'|([\\d.]+)|([^,}]+))`, "i");
+        const match = cleanContent.match(regex);
+        if (!match) return null;
+        return match[1] || match[2] || match[3] || match[4]?.trim();
+      };
+
+      const result = {
+        document_type: extract("document_type"),
+        bank_name: extract("bank_name"),
+        status: extract("status"),
+        amount: parseFloat(extract("amount") || "0"),
+        fee: parseFloat(extract("fee") || "0"),
+        currency: extract("currency") || "THB",
+        transaction_date_iso: extract("transaction_date_iso"),
+        transaction_time: extract("transaction_time"),
+        sender_name: extract("sender_name"),
+        receiver_name: extract("receiver_name"),
+        receiver_account_hint: extract("receiver_account_hint"),
+        reference_no: extract("reference_no"),
+        confidence: extract("confidence")
+      };
+
+      console.log("[ai-process] Extracted with fallback:", result);
+      return result;
     }
   } catch (err) {
-    console.error("[ai-process] Final JSON parse attempt failed:", content);
+    console.error("[ai-process] Final parse attempt failed:", content);
     throw new Error("AI returned data in an invalid format.");
   }
 }
