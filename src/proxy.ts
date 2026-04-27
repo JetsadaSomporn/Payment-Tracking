@@ -72,7 +72,11 @@ export async function proxy(request: NextRequest) {
           supabaseResponse.headers.set("x-csrf-token", csrfToken);
           
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              sameSite: "lax",
+              httpOnly: false,
+            }),
           );
         },
       },

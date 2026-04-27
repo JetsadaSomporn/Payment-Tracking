@@ -30,7 +30,11 @@ export async function createSupabaseServerClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, {
+                ...options,
+                sameSite: "lax",
+                httpOnly: false,
+              })
             );
           } catch {
             // ignore — called from Server Component where cookies are read-only
