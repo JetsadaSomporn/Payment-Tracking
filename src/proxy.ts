@@ -90,6 +90,22 @@ export async function proxy(request: NextRequest) {
   // This will refresh the session if it's expired
   await supabase.auth.getUser();
 
+  // ── Force cookie path fix on EVERY request ───────────────────────────────
+  // Supabase only calls setAll when tokens are expiring. If the session is
+  // fresh, the original cookies (possibly without path="/") remain unchanged.
+  // We must re-set them with path="/" on every request to prevent session loss
+  // when navigating between pages.
+  request.cookies.getAll()
+    .filter(c => c.name.includes("sb-"))
+    .forEach(c => {
+      supabaseResponse.cookies.set(c.name, c.value, {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+        secure: !isDev,
+      });
+    });
+
   supabaseResponse.headers.set("Content-Security-Policy", csp);
   supabaseResponse.cookies.set("csrf-token", csrfToken, {
     path: "/",
