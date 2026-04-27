@@ -1,6 +1,7 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csrfToken = crypto.randomUUID();
   const isDev = process.env.NODE_ENV === "development";
@@ -30,9 +31,39 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
   requestHeaders.set("x-csrf-token", csrfToken);
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  // ── Supabase Session Refresh ──────────────────────────────────────────────
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value),
+          );
+          response = NextResponse.next({
+            request: {
+              headers: requestHeaders,
+            },
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  // This will refresh the session if it's expired
+  await supabase.auth.getUser();
+
   response.headers.set("Content-Security-Policy", csp);
-  response.headers.set(
+  response.headers.append(
     "Set-Cookie",
     `csrf-token=${csrfToken}; Path=/; SameSite=Strict;${isDev ? "" : " Secure"}`,
   );

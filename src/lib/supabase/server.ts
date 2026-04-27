@@ -55,31 +55,47 @@ export async function requireAuthenticatedUser(
     };
   }
 
+  // 1. Try Bearer token first (for API calls from frontend)
   const token = readBearerToken(request);
+  if (token) {
+    const supabase = createClient(url, anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+    const { data, error } = await supabase.auth.getUser(token);
 
-  if (!token) {
+    if (!error && data.user) {
+      return {
+        ok: true,
+        mode: "supabase",
+        accessToken: token,
+        user: {
+          id: data.user.id,
+          email: data.user.email ?? null,
+        },
+      };
+    }
+  }
+
+  // 2. Fallback to session cookies (for direct browser navigation or SSR)
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
     return { ok: false, status: 401, error: "unauthorized" };
   }
 
-  const supabase = createClient(url, anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-  const { data, error } = await supabase.auth.getUser(token);
-
-  if (error || !data.user) {
-    return { ok: false, status: 401, error: "unauthorized" };
-  }
+  const { data: { session } } = await supabase.auth.getSession();
 
   return {
     ok: true,
     mode: "supabase",
-    accessToken: token,
+    accessToken: session?.access_token ?? null,
     user: {
-      id: data.user.id,
-      email: data.user.email ?? null,
+      id: user.id,
+      email: user.email ?? null,
     },
   };
 }
