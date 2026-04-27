@@ -52,10 +52,10 @@ export async function processSlipImage(
     throw new Error("NVIDIA_API_KEY is not configured");
   }
 
-  // ── STEP 1: OCR with specialized fast model ──────────────────────────────
-  // Use Nemotron OCR which is specifically built for this and very fast
-  const visionModel = "nvidia/nemotron-ocr-v1";
-  console.log(`[ai-process] STEP 1: Fast OCR with ${visionModel}`);
+  // ── STEP 1: OCR with STABLE vision model ────────────────────────────────
+  // Reverted to Llama 3.2 Vision because Nemotron 404ed. Optimized for speed.
+  const visionModel = "meta/llama-3.2-11b-vision-instruct";
+  console.log(`[ai-process] STEP 1: Vision OCR with ${visionModel}`);
   
   const visionResponse = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
@@ -71,7 +71,7 @@ export async function processSlipImage(
           content: [
             {
               type: "text",
-              text: "Extract all text from this image.",
+              text: "Read all text from this Thai bank slip. Output raw text only.",
             },
             {
               type: "image_url",

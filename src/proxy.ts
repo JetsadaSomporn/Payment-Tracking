@@ -76,8 +76,9 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, {
               ...options,
+              path: "/", // Force global path
               sameSite: "lax",
-              httpOnly: false, // CRITICAL: Must be false for createBrowserClient to work
+              httpOnly: false, // CRITICAL: Must be false for browser JS access
               secure: !isDev,
             }),
           );
@@ -93,6 +94,7 @@ export async function proxy(request: NextRequest) {
   supabaseResponse.cookies.set("csrf-token", csrfToken, {
     path: "/",
     sameSite: "lax",
+    httpOnly: false,
     secure: !isDev,
   });
 
