@@ -157,6 +157,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       console.log("[auth] getUser result:", { userFound: !!data.user, error: error?.message });
       if (data.user?.email) setAuthLabel(data.user.email);
       if (data.user?.user_metadata) setUserMeta(data.user.user_metadata);
+      if (!data.user) setIsLoadingAuth(false); // Only set false if no user, otherwise wait for session
     });
     
     supabase.auth.getSession().then(({ data, error }: { data: { session: Session | null }, error: any }) => {
@@ -164,6 +165,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       if (data.session) {
         void loadTransactions();
       }
+      setIsLoadingAuth(false); // Done checking initial session
     });
     
     const { data: l } = supabase.auth.onAuthStateChange((_e: AuthChangeEvent, s: Session | null) => {

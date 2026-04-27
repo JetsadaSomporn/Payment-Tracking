@@ -52,10 +52,10 @@ export async function processSlipImage(
     throw new Error("NVIDIA_API_KEY is not configured");
   }
 
-  // ── STEP 1: OCR with small vision model ─────────────────────────────────
-  // Use Llama 3.2 Vision to just get the raw text from the image
-  const visionModel = "meta/llama-3.2-11b-vision-instruct";
-  console.log(`[ai-process] STEP 1: Vision OCR with ${visionModel}`);
+  // ── STEP 1: OCR with specialized fast model ──────────────────────────────
+  // Use Nemotron OCR which is specifically built for this and very fast
+  const visionModel = "nvidia/nemotron-ocr-v1";
+  console.log(`[ai-process] STEP 1: Fast OCR with ${visionModel}`);
   
   const visionResponse = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
@@ -71,7 +71,7 @@ export async function processSlipImage(
           content: [
             {
               type: "text",
-              text: "Extract all text from this Thai bank slip. Output only the raw text found in the image.",
+              text: "Extract all text from this image.",
             },
             {
               type: "image_url",
@@ -83,12 +83,14 @@ export async function processSlipImage(
         }
       ],
       max_tokens: 1024,
-      temperature: 0.2,
+      temperature: 0.1,
     }),
   });
 
   const visionBody = await visionResponse.json().catch(() => null) as NvidiaChatResponse | null;
   if (!visionResponse.ok) {
+    // Fallback to Llama 3.2 Vision if Nemotron fails
+    console.warn("[ai-process] Nemotron failed, no fallback implemented for now.");
     throw new Error(visionBody?.error?.message ?? `Vision OCR failed (${visionResponse.status})`);
   }
 
@@ -96,8 +98,8 @@ export async function processSlipImage(
   if (!rawText) throw new Error("Vision OCR returned no text");
 
   // ── STEP 2: JSON Extraction with DeepSeek V4 Flash ──────────────────────
-  // Use DeepSeek to organize the raw text into our specific JSON schema
-  console.log(`[ai-process] STEP 2: DeepSeek Extraction`);
+  // Use DeepSeek to organize the raw text. Optimized for speed (no thinking).
+  console.log(`[ai-process] STEP 2: Fast DeepSeek Extraction`);
   return extractSlipTextWithNvidiaDeepSeek(rawText);
 }
 
@@ -124,7 +126,7 @@ export async function extractSlipTextWithNvidiaDeepSeek(
         {
           role: "system",
           content:
-            "Extract Thai payment slip data. Return only valid JSON matching the requested schema. Do not include markdown.",
+            "Extract Thai payment slip data. Return ONLY valid JSON matching the schema.",
         },
         {
           role: "user",
@@ -132,20 +134,16 @@ export async function extractSlipTextWithNvidiaDeepSeek(
             {
               type: "text",
               text:
-                "อ่านข้อความ OCR จากสลิปนี้ แล้วตอบเป็น JSON เท่านั้นตาม schema นี้: " +
+                "Convert this OCR text to JSON: " +
                 '{"document_type":"thai_bank_slip|receipt|unknown","bank_name":string|null,"status":"success|failed|unknown","amount":number|null,"fee":number|null,"currency":"THB","transaction_date_iso":"YYYY-MM-DD"|null,"transaction_time":"HH:mm"|null,"sender_name":string|null,"receiver_name":string|null,"receiver_account_hint":string|null,"reference_no":string|null,"raw_text":string,"confidence":number}' +
                 `\n\nOCR text:\n${rawText}`,
             },
           ],
         },
       ],
-      temperature: 1,
-      top_p: 0.95,
-      max_tokens: 4096,
-      chat_template_kwargs: {
-        thinking: true,
-        reasoning_effort: "high",
-      },
+      temperature: 0.1,
+      max_tokens: 1024,
+      // REMOVED thinking and reasoning_effort - THESE WERE THE MAIN CAUSE OF SLOWNESS
     }),
   });
 
