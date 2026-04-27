@@ -53,9 +53,8 @@ export async function processSlipImage(
   }
 
   // ── SINGLE STEP: Vision directly to JSON ────────────────────────────────
-  // Using Llama 3.2 Vision to perform both OCR and Structuring in one call.
-  // This avoids the double-latency that caused the 300s timeouts.
-  const visionModel = "meta/llama-3.2-11b-vision-instruct";
+  // Using Llama 3.2 90B Vision — more capable, less refusal
+  const visionModel = "meta/llama-3.2-90b-vision-instruct";
   console.log(`[ai-process] Unified extraction with ${visionModel}`);
   
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -68,12 +67,17 @@ export async function processSlipImage(
       model: visionModel,
       messages: [
         {
+          role: "system",
+          content: "You are a Thai bank slip reader. Your job is to read text from slip images and output structured JSON. Always output valid JSON, never refuse or explain.",
+        },
+        {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Extract Thai bank slip data into JSON. Output ONLY the JSON object. " +
-                    "Schema: {document_type, bank_name, status, amount, fee, currency, transaction_date_iso, transaction_time, sender_name, receiver_name, reference_no, confidence}",
+              text: "Read this Thai bank payment slip. Output ONLY a JSON object with these fields:\n" +
+                    "{\"document_type\":\"thai_bank_slip\",\"bank_name\":\"...\",\"status\":\"success\",\"amount\":0,\"fee\":0,\"currency\":\"THB\",\"transaction_date_iso\":\"YYYY-MM-DD\",\"transaction_time\":\"HH:MM\",\"sender_name\":\"...\",\"receiver_name\":\"...\",\"reference_no\":\"...\",\"confidence\":0.9}\n" +
+                    "Use null for any field you cannot read. Do not include any other text.",
             },
             {
               type: "image_url",
