@@ -310,10 +310,28 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
     }
   }
 
+  async function deleteTransaction(txId: string) {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/transactions?id=${encodeURIComponent(txId)}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) {
+        setMessage("ลบรายการไม่สำเร็จ");
+        return;
+      }
+      setTransactions((c) => c.filter((t) => t.id !== txId));
+      setMessage("ลบเรียบร้อย");
+    } catch {
+      setMessage("เกิดข้อผิดพลาดในการลบข้อมูล");
+    }
+  }
+
   const ctx: AppCtx = {
     authLabel, userMeta, user, session, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
     periodSummary, previewUrl, selectedFile, setDraft, summary, todayTx, transactions,
-    handleFileChange, handleGoogleLogin, processSlip, saveTransaction,
+    handleFileChange, handleGoogleLogin, processSlip, saveTransaction, deleteTransaction,
   };
 
   return (
@@ -347,7 +365,7 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
               {initialView === "dashboard"     && <OverviewView transactions={transactions} periodSummary={periodSummary} />}
               {initialView === "graph"         && <GraphView transactions={transactions} />}
               {initialView === "upload"        && <UploadView ctx={ctx} />}
-              {initialView === "transactions"  && <TimelineView transactions={transactions} />}
+              {initialView === "transactions"  && <TimelineView transactions={transactions} onDelete={deleteTransaction} />}
               {initialView === "insights"      && <InsightsView ctx={ctx} />}
               {initialView === "settings"      && <SettingsView ctx={ctx} />}
             </div>
@@ -383,6 +401,7 @@ type AppCtx = {
   handleGoogleLogin: () => Promise<void>;
   processSlip: () => Promise<void>;
   saveTransaction: (e: FormEvent<HTMLFormElement>) => Promise<void>;
+  deleteTransaction: (txId: string) => Promise<void>;
 };
 function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
   return (
@@ -940,7 +959,7 @@ function TxList({ transactions, ctx, compact = false }: { transactions: Transact
         return (
           <div key={tx.id} className="border-b border-[var(--line)] last:border-none">
             <div 
-              className={`tx-row cursor-pointer hover:bg-[var(--soft)] px-2 -mx-2 rounded-lg border-none ${isExpanded ? 'bg-[var(--soft)]' : ''}`}
+              className={`tx-row group cursor-pointer hover:bg-[var(--soft)] px-2 -mx-2 rounded-lg border-none ${isExpanded ? 'bg-[var(--soft)]' : ''}`}
               onClick={() => setExpandedId(isExpanded ? null : tx.id)}
             >
               <div className="flex min-w-0 items-start gap-3">
@@ -954,9 +973,20 @@ function TxList({ transactions, ctx, compact = false }: { transactions: Transact
                   </p>
                 </div>
               </div>
-              <p className="font-figures shrink-0 text-[14px] font-medium text-[var(--foreground)]">
-                −{formatTHB(tx.amount)}
-              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <p className="font-figures text-[14px] font-medium text-[var(--foreground)]">
+                  −{formatTHB(tx.amount)}
+                </p>
+                {ctx?.deleteTransaction && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); ctx.deleteTransaction(tx.id); }}
+                    className="rounded p-1 text-[var(--muted)]/0 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all"
+                    title="ลบรายการ"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                )}
+              </div>
             </div>
             
             {/* Linked Relationships Panel */}

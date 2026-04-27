@@ -227,6 +227,61 @@ export async function POST(request: Request) {
   });
 }
 
+export async function DELETE(request: Request) {
+  if (!requireSameOrigin(request)) {
+    return jsonError("forbidden origin", 403);
+  }
+
+  if (!requireCsrfToken(request)) {
+    return jsonError("invalid csrf token", 403);
+  }
+
+  if (
+    !(await checkRateLimit(request, {
+      keyPrefix: "transactions",
+      limit: 60,
+      windowMs: 60_000,
+    }))
+  ) {
+    return jsonError("too many requests", 429);
+  }
+
+  const auth = await requireAuthenticatedUser(request);
+
+  if (!auth.ok) {
+    return jsonError(auth.error, auth.status);
+  }
+
+  if (!auth.accessToken) {
+    return jsonError("unauthorized", 401);
+  }
+
+  // Extract transaction ID from URL: /api/transactions?id=xxx
+  const url = new URL(request.url);
+  const txId = url.searchParams.get("id");
+
+  if (!txId) {
+    return jsonError("transaction id is required", 400);
+  }
+
+  const supabase = createAuthenticatedSupabaseClient(auth.accessToken);
+  const { error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", txId)
+    .eq("user_id", auth.user.id); // RLS double-check
+
+  if (error) {
+    console.error("[transactions:DELETE] supabase delete error", {
+      code: error.code,
+      message: error.message,
+    });
+    return jsonError("transaction delete failed", 500);
+  }
+
+  return jsonOk({ ok: true });
+}
+
 function mapTransactionRow(
   row: Record<string, unknown>,
   userId: string,
