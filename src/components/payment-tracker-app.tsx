@@ -233,21 +233,19 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     setIsProcessing(true);
     setMessage(null);
     try {
-      setMessage("กำลัง OCR สลิปในเครื่อง");
-      const rawText = await extractTextFromSlipImage(selectedFile);
-
-      if (rawText.trim().length < 5) {
-        setMessage("OCR อ่านข้อความจากสลิปไม่ได้");
-        return;
-      }
+      setMessage("กำลังส่งภาพไปให้ AI ประมวลผล (NVIDIA Vision + DeepSeek)...");
 
       const body = new FormData();
       body.set("file", selectedFile);
-      body.set("rawText", rawText);
-      setMessage("กำลังให้ DeepSeek ดึงข้อมูลจากข้อความ");
+      
       const res = await fetch("/api/slips/process", { method: "POST", headers: await authHeaders(), body });
       const data = (await res.json()) as { ok: boolean; error?: string; slip?: SlipExtractionResult };
-      if (!res.ok || !data.ok || !data.slip) { setMessage(data.error ?? "อ่านสลิปไม่สำเร็จ"); return; }
+      
+      if (!res.ok || !data.ok || !data.slip) { 
+        setMessage(data.error ?? "อ่านสลิปไม่สำเร็จ"); 
+        return; 
+      }
+      
       setExtractedSlip(data.slip);
       setDraft({
         type: "expense",
@@ -1085,26 +1083,6 @@ async function authHeaders(): Promise<HeadersInit> {
     (headers as Record<string, string>)["x-csrf-token"] = csrfToken;
   }
   return headers;
-}
-
-async function extractTextFromSlipImage(file: File) {
-  const { createWorker, PSM } = await import("tesseract.js");
-  const worker = await createWorker("tha+eng", 1, {
-    workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js",
-    corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0",
-    langPath: "https://tessdata.projectnaptha.com/4.0.0",
-  });
-
-  try {
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
-      preserve_interword_spaces: "1",
-    });
-    const { data } = await worker.recognize(file);
-    return data.text;
-  } finally {
-    await worker.terminate();
-  }
 }
 
 function emptyDraft(): DraftTransaction {

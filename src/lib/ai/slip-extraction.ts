@@ -41,6 +41,68 @@ export function toSlipExtractionResult(
   };
 }
 
+export async function processSlipImage(
+  base64Image: string,
+  mimeType: string,
+): Promise<SlipExtractionResult> {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  const baseUrl = process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1";
+  
+  // 1. OCR with small vision model
+  const visionModel = "meta/llama-3.2-11b-vision-instruct";
+  
+  if (!apiKey || apiKey.includes("...") || apiKey.startsWith("replace-")) {
+    throw new Error("NVIDIA_API_KEY is not configured");
+  }
+
+  const visionResponse = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: visionModel,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Please extract all the text from this Thai bank slip exactly as written. Ignore all visual styling. Output only the raw text.",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+              },
+            }
+          ]
+        }
+      ],
+      max_tokens: 1024,
+      temperature: 0.2,
+      top_p: 0.7
+    }),
+  });
+
+  const visionBody = await visionResponse.json().catch(() => null) as NvidiaChatResponse | null;
+
+  if (!visionResponse.ok) {
+    const message = visionBody?.error?.message ?? `NVIDIA vision OCR failed with HTTP ${visionResponse.status}`;
+    throw new Error(message);
+  }
+
+  const rawText = visionBody?.choices?.[0]?.message?.content;
+
+  if (!rawText) {
+    throw new Error("NVIDIA vision OCR returned no text");
+  }
+
+  // 2. Extract JSON with DeepSeek V4 Flash
+  return extractSlipTextWithNvidiaDeepSeek(rawText);
+}
+
 export async function extractSlipTextWithNvidiaDeepSeek(
   rawText: string,
 ): Promise<SlipExtractionResult> {

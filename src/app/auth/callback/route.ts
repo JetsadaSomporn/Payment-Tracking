@@ -46,19 +46,5 @@ export async function GET(request: NextRequest) {
   });
 
   console.log("[auth-callback] final redirect to:", next);
-  const response = NextResponse.redirect(`${origin}${next}`);
-  
-  // Guarantee cookies are transferred to the redirect response
-  allCookies.forEach(c => {
-    if (c.name.startsWith('sb-')) {
-      response.cookies.set(c.name, c.value, {
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV !== 'development',
-        maxAge: 60 * 60 * 24 * 365, // 1 year
-      });
-    }
-  });
-
-  return response;
+  return NextResponse.redirect(`${origin}${next}`);
 }

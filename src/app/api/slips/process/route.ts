@@ -1,4 +1,4 @@
-import { extractSlipTextWithNvidiaDeepSeek } from "@/lib/ai/slip-extraction";
+import { processSlipImage } from "@/lib/ai/slip-extraction";
 import {
   checkRateLimit,
   jsonError,
@@ -39,18 +39,9 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
-  const rawText = formData.get("rawText");
 
   if (!(file instanceof File)) {
     return jsonError("file is required", 400);
-  }
-
-  if (typeof rawText !== "string" || rawText.trim().length < 5) {
-    return jsonError("OCR text is required", 400);
-  }
-
-  if (new TextEncoder().encode(rawText).byteLength > 64 * 1024) {
-    return jsonError("OCR text is too large", 400);
   }
 
   const metadataError = validateSlipFileMetadata(file);
@@ -68,7 +59,12 @@ export async function POST(request: Request) {
   let slip;
 
   try {
-    slip = await extractSlipTextWithNvidiaDeepSeek(rawText.trim());
+    const arrayBuffer = await file.arrayBuffer();
+    const base64Data = Buffer.from(arrayBuffer).toString("base64");
+    const mimeType = file.type || "image/jpeg";
+    
+    // Call the new unified function that uses Vision -> DeepSeek
+    slip = await processSlipImage(base64Data, mimeType);
   } catch (error) {
     const message = error instanceof Error ? error.message : "slip extraction failed";
     return jsonError(message, 502);
