@@ -38,7 +38,7 @@ export function buildGraph(transactions: Transaction[]): { nodes: GraphNode[]; e
   const nodeMap = new Map<string, GraphNode>();
   const edgeMap = new Map<string, GraphEdge>();
 
-  for (const tx of transactions) {
+  for (const tx of transactions.filter(t => t.type === "expense")) {
     // Category node
     const catKey = `cat:${tx.categoryName}`;
     if (!nodeMap.has(catKey)) {
