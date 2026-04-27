@@ -161,6 +161,20 @@ export default function UploadView({ ctx }: { ctx: AppCtx }) {
                   )}
                 </select>
               </Field>
+              <Field label="วันที่">
+                <input
+                  className="field font-figures"
+                  type="date"
+                  onChange={(e) => ctx.setDraft({ ...ctx.draft, transactionDate: e.target.value })}
+                  value={ctx.draft.transactionDate}
+                />
+                {ctx.extractedSlip?.transactionDateIso &&
+                  ctx.extractedSlip.transactionDateIso.slice(0, 4) !== new Date().getFullYear().toString() && (
+                  <p className="mt-1 text-[11px] text-[var(--expense)]">
+                    ⚠ AI อ่านปี {ctx.extractedSlip.transactionDateIso.slice(0, 4)} — ตรวจสอบก่อนบันทึก
+                  </p>
+                )}
+              </Field>
             </div>
 
             <div className="mt-5 flex gap-2">
