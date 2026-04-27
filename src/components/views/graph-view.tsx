@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   buildGraph,
   applyForces,
@@ -8,7 +8,6 @@ import {
   type GraphNode,
   type GraphEdge,
 } from "@/lib/graph-layout";
-import { buildVaultFiles, writeToObsidianVault } from "@/lib/obsidian-export";
 import type { Transaction } from "@/lib/types";
 
 const ZOOM_MIN = 0.2;
@@ -42,10 +41,6 @@ export default function GraphView({ transactions }: { transactions: Transaction[
 
   const dirtyRef = useRef(true);
   const rafRef = useRef(0);
-
-  // Obsidian export state
-  const [exportState, setExportState] = useState<"idle" | "writing" | "done" | "error">("idle");
-  const [exportMsg, setExportMsg] = useState("");
 
   // Graph data
   const { nodes, edges } = useMemo(() => {
@@ -358,28 +353,6 @@ export default function GraphView({ transactions }: { transactions: Transaction[
     dirtyRef.current = true;
   };
 
-  const exportToObsidian = useCallback(async () => {
-    const files = buildVaultFiles(transactions);
-    if (files.length === 0) {
-      setExportMsg("ยังไม่มีรายจ่ายที่จะส่งออก");
-      setExportState("error");
-      setTimeout(() => setExportState("idle"), 2500);
-      return;
-    }
-    try {
-      setExportState("writing");
-      setExportMsg(`กำลังเขียน ${files.length} ไฟล์…`);
-      const { written, folder } = await writeToObsidianVault(files);
-      setExportMsg(`เขียน ${written} ไฟล์ลง "${folder}" เรียบร้อย`);
-      setExportState("done");
-      setTimeout(() => { setExportState("idle"); setExportMsg(""); }, 4000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "เกิดข้อผิดพลาด";
-      setExportMsg(msg.includes("aborted") ? "ยกเลิก" : msg);
-      setExportState(msg.includes("ยกเลิก") ? "idle" : "error");
-      setTimeout(() => { setExportState("idle"); setExportMsg(""); }, 3500);
-    }
-  }, [transactions]);
 
   const filteredCount = selectedNode
     ? transactions.filter((tx) => {
@@ -419,41 +392,11 @@ export default function GraphView({ transactions }: { transactions: Transaction[
         }}
       />
 
-      {/* Top-left: stats + Obsidian export */}
-      <div className="absolute top-3 left-3 flex items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.09] bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-[11px] text-white/35">
-          <span>{nodeCount} nodes</span>
-          <span className="text-white/15">·</span>
-          <span>{edgeCount} links</span>
-        </div>
-
-        <button
-          onClick={exportToObsidian}
-          disabled={exportState === "writing"}
-          title="Export to Obsidian vault"
-          className={`flex items-center gap-1.5 rounded-lg border backdrop-blur-md px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 disabled:cursor-not-allowed
-            ${exportState === "done"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-              : exportState === "error"
-                ? "border-red-500/30 bg-red-500/10 text-red-400"
-                : "border-white/[0.09] bg-black/50 text-white/50 hover:text-white/85 hover:border-white/20 hover:bg-black/70"
-            }`}
-        >
-          <ObsidianIcon />
-          {exportState === "writing"
-            ? "กำลังเขียน…"
-            : exportState === "done"
-              ? "สำเร็จ"
-              : exportState === "error"
-                ? "ไม่สำเร็จ"
-                : "Obsidian"}
-        </button>
-
-        {exportMsg && exportState !== "idle" && (
-          <div className="rounded-lg border border-white/[0.09] bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-[11px] text-white/50 max-w-[240px] truncate">
-            {exportMsg}
-          </div>
-        )}
+      {/* Top-left: stats badge */}
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg border border-white/[0.09] bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-[11px] text-white/35">
+        <span>{nodeCount} nodes</span>
+        <span className="text-white/15">·</span>
+        <span>{edgeCount} links</span>
       </div>
 
       {/* Top-right: controls */}
@@ -529,13 +472,6 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-function ObsidianIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12.5 2C9.8 2 7.5 3.7 6.7 6.1L3 9.5l3.3 1.8L4.5 14l4-1.2 1.2 4 3-3.3c.2 0 .4.1.7.1C16 13.5 18 11.5 18 9s-2.5-7-5.5-7zm0 2c2.5 0 3.5 3.5 3.5 5s-1 2.5-2.5 2.5-3-1.5-3-3 .6-4.5 2-4.5z" />
-    </svg>
-  );
-}
 
 function hexAlpha(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);

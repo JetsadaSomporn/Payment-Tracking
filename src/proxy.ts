@@ -121,7 +121,7 @@ export async function proxy(request: NextRequest) {
   supabaseResponse.cookies.set("csrf-token", csrfToken, {
     path: "/",
     sameSite: "lax",
-    httpOnly: false,
+    httpOnly: true,
     secure: !isDev,
   });
 
@@ -137,7 +137,7 @@ export const config = {
 export { proxy as middleware };
 
 function shouldUseHttpOnly(cookieName: string) {
-  return cookieName.startsWith("sb-") && !cookieName.includes("code-verifier");
+  return cookieName.startsWith("sb-");
 }
 
 function applySecurityHeaders(
@@ -151,7 +151,7 @@ function applySecurityHeaders(
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()",
   );
 
   if (!isDev) {
