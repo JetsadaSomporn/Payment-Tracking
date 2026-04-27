@@ -19,7 +19,7 @@ export async function proxy(request: NextRequest) {
     "default-src 'self'",
     `script-src 'self' https://cdn.jsdelivr.net 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'unsafe-inline'`,
-    "img-src 'self' blob: data:",
+    "img-src 'self' blob: data: https://*.googleusercontent.com",
     "font-src 'self'",
     `connect-src 'self' https://*.supabase.co https://*.nvidia.com https://cdn.jsdelivr.net https://tessdata.projectnaptha.com https://*.google.com`,
     "worker-src 'self' blob: https://cdn.jsdelivr.net",
