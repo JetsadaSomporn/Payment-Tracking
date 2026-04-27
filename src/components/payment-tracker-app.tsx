@@ -647,9 +647,9 @@ function DashboardView({ ctx }: { ctx: AppCtx }) {
     </div>
   );
 }
-}
 
 function TransactionsView({ ctx }: { ctx: AppCtx }) {
+  const [category, setCategory] = useState<string | "all">("all");
   const [period, setPeriod] = useState<PeriodKey | "all">("month");
   const filteredTransactions = useMemo(
     () =>
