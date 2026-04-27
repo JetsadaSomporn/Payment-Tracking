@@ -65,7 +65,7 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Content-Security-Policy", csp);
   response.headers.append(
     "Set-Cookie",
-    `csrf-token=${csrfToken}; Path=/; SameSite=Strict;${isDev ? "" : " Secure"}`,
+    `csrf-token=${csrfToken}; Path=/; SameSite=Lax;${isDev ? "" : " Secure"}`,
   );
 
   return response;
