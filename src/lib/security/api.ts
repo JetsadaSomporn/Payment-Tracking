@@ -170,13 +170,20 @@ export function getCsrfTokenFromCookie(request: Request): string | null {
 }
 
 function getClientIp(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
+  const forwardedChains = [
+    request.headers.get("x-vercel-forwarded-for"),
+    request.headers.get("x-forwarded-for"),
+  ];
 
-  if (forwardedFor) {
-    const candidates = forwardedFor
+  for (const chain of forwardedChains) {
+    if (!chain) {
+      continue;
+    }
+
+    const candidates = chain
       .split(",")
       .map((ip) => normalizeIp(ip))
-      .filter((ip): ip is string => Boolean(ip) && isIP(ip) !== 0);
+      .filter((ip): ip is string => typeof ip === "string" && isIP(ip) !== 0);
     const publicFromRight = [...candidates].reverse().find(isPublicIp);
 
     if (publicFromRight) {
@@ -243,10 +250,12 @@ function isPublicIp(ip: string) {
     if (
       a === 10 ||
       a === 0 ||
+      a >= 224 ||
       a === 127 ||
       (a === 100 && b >= 64 && b <= 127) ||
       (a === 169 && b === 254) ||
       (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 0) ||
       (a === 192 && b === 168)
     ) {
       return false;
