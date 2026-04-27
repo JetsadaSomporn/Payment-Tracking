@@ -52,12 +52,13 @@ export async function processSlipImage(
     throw new Error("NVIDIA_API_KEY is not configured");
   }
 
-  // ── STEP 1: OCR with STABLE vision model ────────────────────────────────
-  // Reverted to Llama 3.2 Vision because Nemotron 404ed. Optimized for speed.
+  // ── SINGLE STEP: Vision directly to JSON ────────────────────────────────
+  // Using Llama 3.2 Vision to perform both OCR and Structuring in one call.
+  // This avoids the double-latency that caused the 300s timeouts.
   const visionModel = "meta/llama-3.2-11b-vision-instruct";
-  console.log(`[ai-process] STEP 1: Vision OCR with ${visionModel}`);
+  console.log(`[ai-process] Unified extraction with ${visionModel}`);
   
-  const visionResponse = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+  const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -71,7 +72,8 @@ export async function processSlipImage(
           content: [
             {
               type: "text",
-              text: "Read all text from this Thai bank slip. Output raw text only.",
+              text: "Extract Thai bank slip data into JSON. Output ONLY the JSON object. " +
+                    "Schema: {document_type, bank_name, status, amount, fee, currency, transaction_date_iso, transaction_time, sender_name, receiver_name, reference_no, confidence}",
             },
             {
               type: "image_url",
@@ -87,22 +89,33 @@ export async function processSlipImage(
     }),
   });
 
-  const visionBody = await visionResponse.json().catch(() => null) as NvidiaChatResponse | null;
-  if (!visionResponse.ok) {
-    // Fallback to Llama 3.2 Vision if Nemotron fails
-    console.warn("[ai-process] Nemotron failed, no fallback implemented for now.");
-    throw new Error(visionBody?.error?.message ?? `Vision OCR failed (${visionResponse.status})`);
+  const body = await response.json().catch(() => null) as NvidiaChatResponse | null;
+  if (!response.ok) {
+    throw new Error(body?.error?.message ?? `AI extraction failed (${response.status})`);
   }
 
-  const rawText = visionBody?.choices?.[0]?.message?.content;
-  if (!rawText) throw new Error("Vision OCR returned no text");
+  const content = body?.choices?.[0]?.message?.content;
+  if (!content) throw new Error("AI returned no content");
 
-  // ── STEP 2: JSON Extraction with DeepSeek V4 Flash ──────────────────────
-  // Use DeepSeek to organize the raw text. Optimized for speed (no thinking).
-  console.log(`[ai-process] STEP 2: Fast DeepSeek Extraction`);
-  return extractSlipTextWithNvidiaDeepSeek(rawText);
+  // Parse the structured response
+  try {
+    const jsonStr = content.includes("```json") 
+      ? content.split("```json")[1].split("```")[0] 
+      : content;
+    
+    const parsed = slipExtractionSchema.parse({
+      ...parseJsonObject(jsonStr),
+      raw_text: "Unified vision extraction",
+    });
+    
+    return toSlipExtractionResult(parsed);
+  } catch (err) {
+    console.error("[ai-process] Extraction parse failed:", content);
+    throw new Error("Could not understand the AI response format.");
+  }
 }
 
+// Keep this for potential fallback or manual text processing
 export async function extractSlipTextWithNvidiaDeepSeek(
   rawText: string,
 ): Promise<SlipExtractionResult> {
