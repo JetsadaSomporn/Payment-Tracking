@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   ChevronRight,
@@ -14,25 +14,76 @@ import {
   Trash2,
   Database,
   Brain,
-  Sliders,
+  Zap,
+  AlertTriangle,
+  HardDrive,
+  Globe,
   Key,
   Fingerprint,
-  AlertTriangle,
-  Clock,
   Server,
-  Globe,
-  Bell,
-  Eye,
-  EyeOff,
-  HardDrive,
-  Zap,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import type { AppCtx } from "@/components/payment-tracker-app";
 
+type Preferences = {
+  aiModel: string;
+  aiConfidence: number;
+  autoCategorize: boolean;
+  reducedMotion: boolean;
+};
+
+const DEFAULT_PREFS: Preferences = {
+  aiModel: "deepseek-v4-flash",
+  aiConfidence: 0.75,
+  autoCategorize: true,
+  reducedMotion: false,
+};
+
+function getCsrfToken(): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|;\s*)csrf-token=([^;]*)/);
+  return match?.[1] ?? "";
+}
+
 export function SettingsView({ ctx }: { ctx: AppCtx }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light" | "system">("dark");
+  const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
+  // ── Load preferences from API ──────────────────────────────────────────
+  useEffect(() => {
+    if (!ctx.isAuthenticated) {
+      setPrefsLoaded(true);
+      return;
+    }
+
+    fetch("/api/preferences", {
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.preferences && typeof data.preferences === "object") {
+          setPrefs({ ...DEFAULT_PREFS, ...data.preferences });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPrefsLoaded(true));
+  }, [ctx.isAuthenticated]);
+
+  // ── Apply reduced motion ───────────────────────────────────────────────
+  useEffect(() => {
+    if (prefs.reducedMotion) {
+      document.documentElement.classList.add("reduce-motion");
+    } else {
+      document.documentElement.classList.remove("reduce-motion");
+    }
+  }, [prefs.reducedMotion]);
+
+  // ── Load saved theme ───────────────────────────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem("spendly-theme");
     if (stored === "light") setTheme("light");
@@ -40,6 +91,32 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
     else setTheme("system");
   }, []);
 
+  // ── Save preference to API ─────────────────────────────────────────────
+  const savePref = useCallback(
+    async (key: keyof Preferences, value: unknown) => {
+      setPrefs((prev) => ({ ...prev, [key]: value }));
+
+      if (!ctx.isAuthenticated) return; // guest mode — local only
+
+      try {
+        await fetch("/api/preferences", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": getCsrfToken(),
+          },
+          credentials: "include",
+          body: JSON.stringify({ [key]: value }),
+        });
+      } catch {
+        // Rollback on network error
+        setPrefs((prev) => ({ ...prev, [key]: prev[key] }));
+      }
+    },
+    [ctx.isAuthenticated],
+  );
+
+  // ── Sign out ───────────────────────────────────────────────────────────
   async function handleSignOut() {
     const { getBrowserSupabaseClient } = await import("@/lib/supabase/client");
     const supabase = getBrowserSupabaseClient();
@@ -48,11 +125,8 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
       return;
     }
 
-    // 1. Sign out on client (clears localStorage)
     await supabase.auth.signOut();
 
-    // 2. Sign out on server (clears HttpOnly cookies)
-    // POST triggers server-side cookie wipe + redirect to /
     const form = document.createElement("form");
     form.method = "POST";
     form.action = "/api/auth/signout";
@@ -60,27 +134,63 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
     form.submit();
   }
 
+  // ── Theme ──────────────────────────────────────────────────────────────
   function handleThemeChange(t: "dark" | "light" | "system") {
     setTheme(t);
     if (t === "system") {
       localStorage.removeItem("spendly-theme");
       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      if (prefersDark) {
-        document.documentElement.removeAttribute("data-theme");
-      } else {
-        document.documentElement.setAttribute("data-theme", "light");
-      }
+      document.documentElement.toggleAttribute("data-theme", !prefersDark);
     } else {
       localStorage.setItem("spendly-theme", t === "light" ? "light" : "dark");
-      if (t === "light") {
-        document.documentElement.setAttribute("data-theme", "light");
+      document.documentElement.toggleAttribute("data-theme", t === "light");
+    }
+  }
+
+  // ── Export CSV ─────────────────────────────────────────────────────────
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch("/api/export", { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `spendly-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // ── Delete all data ────────────────────────────────────────────────────
+  async function handleDeleteAll() {
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/transactions/delete-all", {
+        method: "DELETE",
+        headers: { "x-csrf-token": getCsrfToken() },
+        credentials: "include",
+      });
+      if (res.ok) {
+        window.location.reload();
       } else {
-        document.documentElement.removeAttribute("data-theme");
+        setDeleting(false);
+        setConfirmDelete(false);
       }
+    } catch {
+      setDeleting(false);
     }
   }
 
   const synced = ctx.hasSupabase && ctx.isAuthenticated;
+  const txCount = ctx.transactions.length;
 
   return (
     <div className="max-w-xl space-y-5 animate-in pb-8">
@@ -107,31 +217,20 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
             </p>
           </div>
           {ctx.isAuthenticated ? (
-            <button
-              className="secondary-button text-[13px] gap-2 shrink-0"
-              onClick={handleSignOut}
-              type="button"
-            >
-              <LogOut size={14} />
-              Sign out
+            <button className="secondary-button text-[13px] gap-2 shrink-0" onClick={handleSignOut} type="button">
+              <LogOut size={14} /> Sign out
             </button>
           ) : (
-            <button
-              className="primary-button text-[13px] gap-2 shrink-0"
-              onClick={ctx.handleGoogleLogin}
-              type="button"
-            >
-              <LogIn size={14} />
-              Sign in
+            <button className="primary-button text-[13px] gap-2 shrink-0" onClick={ctx.handleGoogleLogin} type="button">
+              <LogIn size={14} /> Sign in
             </button>
           )}
         </div>
       </Section>
 
       {/* ── Appearance ── */}
-      <Section title="Appearance" icon={<Eye size={15} />}>
+      <Section title="Appearance" icon={<Sun size={15} />}>
         <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
-          {/* Theme */}
           <div className="px-5 py-3.5">
             <div className="flex items-center justify-between">
               <div>
@@ -163,15 +262,15 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
             </div>
           </div>
 
-          {/* Reduced motion */}
           <SettingRow
             label="Reduced motion"
             description="Disable animations and transitions"
             right={
               <ToggleSwitch
-                checked={false}
-                onChange={() => {}}
+                checked={prefs.reducedMotion}
+                onChange={(v) => savePref("reducedMotion", v)}
                 label="Reduced motion"
+                disabled={!prefsLoaded}
               />
             }
           />
@@ -185,7 +284,12 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
             label="Auto-categorize"
             description="Automatically assign categories from slip OCR"
             right={
-              <ToggleSwitch checked={true} onChange={() => {}} label="Auto-categorize" />
+              <ToggleSwitch
+                checked={prefs.autoCategorize}
+                onChange={(v) => savePref("autoCategorize", v)}
+                label="Auto-categorize"
+                disabled={!prefsLoaded}
+              />
             }
           />
 
@@ -197,9 +301,8 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
             <div className="flex items-center gap-2">
               <Zap size={13} className="text-[var(--gold)]" />
               <span className="text-[13px] font-figures text-[var(--text-muted)]">
-                DeepSeek V4
+                {prefs.aiModel === "deepseek-v4-flash" ? "DeepSeek V4 Flash" : prefs.aiModel}
               </span>
-              <ChevronRight size={13} className="text-[var(--text-disabled)]" />
             </div>
           </div>
 
@@ -209,8 +312,9 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
               <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Warn below this level</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-figures text-[var(--text-muted)]">75%</span>
-              <ChevronRight size={13} className="text-[var(--text-disabled)]" />
+              <span className="text-[13px] font-figures text-[var(--text-muted)]">
+                {Math.round(prefs.aiConfidence * 100)}%
+              </span>
             </div>
           </div>
         </div>
@@ -221,24 +325,31 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
         <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
           <div className="flex items-center justify-between px-5 py-3.5">
             <div>
-              <p className="text-[14px] text-[var(--text-secondary)]">Storage used</p>
-              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Encrypted on Supabase</p>
+              <p className="text-[14px] text-[var(--text-secondary)]">Transactions</p>
+              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                {synced ? "Synced to Supabase" : "Stored locally"}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <HardDrive size={13} className="text-[var(--text-muted)]" />
-              <span className="text-[13px] font-figures text-[var(--text-muted)]">&lt; 1 MB</span>
-            </div>
+            <span className="text-[13px] font-figures text-[var(--text-muted)]">
+              {txCount.toLocaleString()} records
+            </span>
           </div>
 
           <button
-            className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-[var(--bg-elevated)] transition-colors"
+            className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-[var(--bg-elevated)] transition-colors disabled:opacity-40"
             type="button"
+            onClick={handleExport}
+            disabled={exporting || txCount === 0}
           >
             <div className="flex items-center gap-3">
-              <FileDown size={15} className="text-[var(--text-muted)] shrink-0" />
+              {exporting ? (
+                <Loader2 size={15} className="animate-spin text-[var(--text-muted)] shrink-0" />
+              ) : (
+                <FileDown size={15} className="text-[var(--text-muted)] shrink-0" />
+              )}
               <div>
-                <p className="text-[14px]">Export all data</p>
-                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Download as CSV</p>
+                <p className="text-[14px]">{exporting ? "Exporting..." : "Export all data"}</p>
+                <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Download as CSV (UTF-8)</p>
               </div>
             </div>
             <ChevronRight size={14} className="text-[var(--text-muted)]" />
@@ -247,16 +358,19 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
           <div className="px-5 py-3.5">
             {!confirmDelete ? (
               <button
-                className="w-full flex items-center justify-between text-left hover:bg-[var(--bg-elevated)] transition-colors -mx-5 px-5 py-3.5"
+                className="w-full flex items-center text-left hover:bg-[var(--bg-elevated)] transition-colors -mx-5 px-5 py-3.5"
                 onClick={() => setConfirmDelete(true)}
                 type="button"
+                disabled={!synced}
               >
                 <div className="flex items-center gap-3">
                   <Trash2 size={15} className="text-[var(--expense)] shrink-0" />
                   <div>
                     <p className="text-[14px] text-[var(--expense)]">Delete all data</p>
                     <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                      Permanently remove all transactions and slips
+                      {synced
+                        ? "Permanently remove all transactions and slips"
+                        : "Sign in to manage cloud data"}
                     </p>
                   </div>
                 </div>
@@ -266,25 +380,27 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
                 <div className="flex items-start gap-2.5 mb-3">
                   <AlertTriangle size={15} className="text-[var(--expense)] shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[14px] font-semibold text-[var(--expense)]">
-                      Are you sure?
-                    </p>
+                    <p className="text-[14px] font-semibold text-[var(--expense)]">Are you sure?</p>
                     <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                      This action cannot be undone. All your transactions, slips, and summaries will be permanently deleted.
+                      This permanently deletes all {txCount.toLocaleString()} transactions, slips, and summaries. This action cannot be undone.
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    className="flex-1 rounded-lg bg-[var(--expense)] px-4 py-2 text-[13px] font-medium text-white hover:opacity-90 transition-opacity"
+                    className="flex-1 rounded-lg bg-[var(--expense)] px-4 py-2 text-[13px] font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
                     type="button"
+                    onClick={handleDeleteAll}
+                    disabled={deleting}
                   >
-                    Yes, delete everything
+                    {deleting && <Loader2 size={13} className="animate-spin" />}
+                    {deleting ? "Deleting..." : "Yes, delete everything"}
                   </button>
                   <button
-                    className="rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    className="rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
                     onClick={() => setConfirmDelete(false)}
                     type="button"
+                    disabled={deleting}
                   >
                     Cancel
                   </button>
@@ -298,52 +414,14 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
       {/* ── Security ── */}
       <Section title="Security" icon={<Fingerprint size={15} />}>
         <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
-          <div className="flex items-center justify-between px-5 py-3.5">
-            <div>
-              <p className="text-[14px] text-[var(--text-secondary)]">Encryption</p>
-              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">AES-256-GCM at rest</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--income)]" />
-              <span className="text-[13px] text-[var(--income)] font-medium">Active</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between px-5 py-3.5">
-            <div>
-              <p className="text-[14px] text-[var(--text-secondary)]">Tamper detection</p>
-              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">HMAC-SHA256 row signing</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--income)]" />
-              <span className="text-[13px] text-[var(--income)] font-medium">Active</span>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between px-5 py-3.5">
-            <div>
-              <p className="text-[14px] text-[var(--text-secondary)]">CSRF Protection</p>
-              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Double-submit cookie pattern</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--income)]" />
-              <span className="text-[13px] text-[var(--income)] font-medium">Active</span>
-            </div>
-          </div>
-
-          <SettingRow
+          <StatusRow label="Encryption" desc="AES-256-GCM at rest" active />
+          <StatusRow label="Tamper detection" desc="HMAC-SHA256 row signing" active />
+          <StatusRow label="CSRF Protection" desc="Double-submit cookie pattern" active />
+          <StatusRow
             label="Session"
-            description={synced ? "Google OAuth · Active" : "Not signed in"}
-            right={
-              <div className="flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${synced ? "bg-[var(--income)]" : "bg-[var(--text-disabled)]"}`} />
-                <span className={`text-[13px] ${synced ? "text-[var(--income)]" : "text-[var(--text-muted)]"}`}>
-                  {synced ? "Secure" : "Offline"}
-                </span>
-              </div>
-            }
+            desc={synced ? "Google OAuth · Active" : "Not signed in"}
+            active={synced}
           />
-
           <div className="flex items-center justify-between px-5 py-3.5">
             <div>
               <p className="text-[14px] text-[var(--text-secondary)]">Cloud sync</p>
@@ -369,17 +447,13 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
                 {ctx.isAuthenticated ? ctx.authLabel : "Not signed in"}
               </p>
             </div>
-            <span className="text-[12px] text-[var(--text-muted)]">
-              {ctx.isAuthenticated ? "Google" : "—"}
-            </span>
+            <span className="text-[12px] text-[var(--text-muted)]">{ctx.isAuthenticated ? "Google" : "—"}</span>
           </div>
 
           <div className="flex items-center justify-between px-5 py-3.5">
             <div>
               <p className="text-[14px] text-[var(--text-secondary)]">Connected account</p>
-              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                {ctx.isAuthenticated ? "Google OAuth 2.0" : "None"}
-              </p>
+              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{ctx.isAuthenticated ? "Google OAuth 2.0" : "None"}</p>
             </div>
             <Globe size={14} className="text-[var(--text-muted)]" />
           </div>
@@ -403,17 +477,11 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
       {/* ── Legal ── */}
       <Section title="Legal" icon={<ShieldCheck size={15} />}>
         <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
-          <Link
-            href="/p"
-            className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors"
-          >
+          <Link href="/p" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
             <span className="text-[14px] text-[var(--text-secondary)]">Privacy Policy</span>
             <ChevronRight size={14} className="text-[var(--text-muted)]" />
           </Link>
-          <Link
-            href="/e"
-            className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors"
-          >
+          <Link href="/e" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
             <span className="text-[14px] text-[var(--text-secondary)]">Terms of Service</span>
             <ChevronRight size={14} className="text-[var(--text-muted)]" />
           </Link>
@@ -452,17 +520,9 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
   );
 }
 
-/* ── Shared sub-components ── */
+/* ── Sub-components ── */
 
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
       <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)] flex items-center gap-2">
@@ -474,15 +534,7 @@ function Section({
   );
 }
 
-function SettingRow({
-  label,
-  description,
-  right,
-}: {
-  label: string;
-  description: string;
-  right: React.ReactNode;
-}) {
+function SettingRow({ label, description, right }: { label: string; description: string; right: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-5 py-3.5">
       <div>
@@ -494,24 +546,38 @@ function SettingRow({
   );
 }
 
+function StatusRow({ label, desc, active }: { label: string; desc: string; active: boolean }) {
+  return (
+    <div className="flex items-center justify-between px-5 py-3.5">
+      <div>
+        <p className="text-[14px] text-[var(--text-secondary)]">{label}</p>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{desc}</p>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-[var(--income)]" : "bg-[var(--text-disabled)]"}`} />
+        <span className={`text-[13px] ${active ? "text-[var(--income)] font-medium" : "text-[var(--text-muted)]"}`}>
+          {active ? "Active" : "Inactive"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ToggleSwitch({
-  checked,
-  onChange,
-  label,
+  checked, onChange, label, disabled,
 }: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
+  checked: boolean; onChange: (checked: boolean) => void; label: string; disabled?: boolean;
 }) {
   return (
     <button
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 ${
-        checked ? "bg-[var(--accent)]" : "bg-[var(--bg-field)] border border-[var(--border-subtle)]"
-      }`}
+        disabled ? "opacity-40 cursor-not-allowed" : ""
+      } ${checked ? "bg-[var(--accent)]" : "bg-[var(--bg-field)] border border-[var(--border-subtle)]"}`}
     >
       <span
         className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
