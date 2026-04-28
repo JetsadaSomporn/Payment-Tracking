@@ -23,9 +23,10 @@ const insightSchema = z.object({
       }),
     )
     .max(20),
+  period: z.string().max(40).optional().transform(v => (v ? v.replace(/<[^>]*>?/gm, "") : v)),
   question: z
     .string()
-    .max(200)
+    .max(400)
     .optional()
     .transform(v => (v ? v.replace(/<[^>]*>?/gm, "") : v)),
 });

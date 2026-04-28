@@ -1,8 +1,9 @@
-type InsightContext = {
+export type InsightContext = {
   totalExpense: number;
   totalIncome: number;
   transactionCount: number;
   categories: Array<{ name: string; amount: number; count: number }>;
+  period?: string;
   question?: string;
 };
 
@@ -16,11 +17,14 @@ export async function generateInsight(ctx: InsightContext): Promise<string> {
   }
 
   const catLines = ctx.categories
-    .slice(0, 8)
+    .slice(0, 10)
     .map(c => `- ${c.name}: ${c.amount.toFixed(0)} บาท (${c.count} รายการ)`)
     .join("\n");
 
+  const periodLine = ctx.period ? `ช่วงเวลา: ${ctx.period}\n` : "";
+
   const dataBlock = [
+    periodLine,
     `รายจ่ายรวม: ${ctx.totalExpense.toFixed(2)} บาท`,
     `รายรับรวม:  ${ctx.totalIncome.toFixed(2)} บาท`,
     `ยอดสุทธิ:   ${(ctx.totalIncome - ctx.totalExpense).toFixed(2)} บาท`,
@@ -29,8 +33,8 @@ export async function generateInsight(ctx: InsightContext): Promise<string> {
   ].join("\n");
 
   const userMessage = ctx.question
-    ? `ข้อมูลการเงิน:\n${dataBlock}\n\nคำถาม: ${ctx.question}`
-    : `ข้อมูลการเงิน:\n${dataBlock}\n\nวิเคราะห์รูปแบบการใช้จ่ายและให้คำแนะนำที่เป็นประโยชน์จริงๆ`;
+    ? `ข้อมูลการเงินของฉัน:\n${dataBlock}\n\nคำถาม: ${ctx.question}`
+    : `ข้อมูลการเงินของฉัน:\n${dataBlock}\n\nช่วยวิเคราะห์ภาพรวมและบอกว่าควรปรับอะไรบ้าง`;
 
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
@@ -44,12 +48,12 @@ export async function generateInsight(ctx: InsightContext): Promise<string> {
         {
           role: "system",
           content:
-            "คุณเป็นที่ปรึกษาการเงินส่วนบุคคล ตอบเป็นภาษาไทยเสมอ กระชับ ตรงประเด็น ไม่เกิน 3 ประโยค ให้ข้อมูลเชิงลึกที่เป็นประโยชน์และคำแนะนำที่นำไปปฏิบัติได้จริง",
+            "คุณเป็นผู้ช่วยการเงินส่วนตัว พูดภาษาไทยแบบเป็นกันเอง ตรงประเด็น ไม่ต้องยาว ไม่ต้องมีหัวข้อหรือ bullet ตอบเหมือนคุยกับเพื่อน วิจารณ์ได้ตรงๆ และแนะนำสิ่งที่ทำได้จริง",
         },
         { role: "user", content: userMessage },
       ],
-      max_tokens: 300,
-      temperature: 0.5,
+      max_tokens: 400,
+      temperature: 0.65,
     }),
   });
 

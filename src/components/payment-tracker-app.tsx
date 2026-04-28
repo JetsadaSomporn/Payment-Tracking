@@ -27,6 +27,7 @@ import {
   PieChart,
   ReceiptText,
   Search,
+  Send,
   Settings,
   Share2,
   ShieldCheck,
@@ -577,16 +578,40 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
     </div>
   );
 }
-const QUICK_QUESTIONS = [
-  "วันนี้ใช้ไปเท่าไหร่ และเยอะเกินไปไหม?",
-  "เดือนนี้หมดกับอะไรเยอะสุด?",
-  "ควรปรับพฤติกรรมการใช้จ่ายยังไง?",
+const SUGGEST_CHIPS = [
+  "เยอะเกินไปไหม?",
+  "หมวดไหนน่าลด?",
+  "เดือนหน้าควรทำยังไง?",
+  "ออมเพิ่มได้ไหม?",
 ];
 
 function InsightsView({ ctx }: { ctx: AppCtx }) {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [activeQ, setActiveQ] = useState<string | null>(null);
   const [insightError, setInsightError] = useState<string | null>(null);
+  const [inputValue, setInputValue] = useState("");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + "01";
+  const monthlyTx = useMemo(
+    () => ctx.transactions.filter(t => t.transactionDate >= monthStart && t.transactionDate <= today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ctx.transactions, monthStart],
+  );
+  const monthExpense = useMemo(
+    () => monthlyTx.filter(t => t.type === "expense").reduce((s, t) => s + t.amount + t.fee, 0),
+    [monthlyTx],
+  );
+  const monthCatTotals = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of monthlyTx) {
+      if (t.type !== "expense") continue;
+      m.set(t.categoryName, (m.get(t.categoryName) ?? 0) + t.amount + t.fee);
+    }
+    return [...m.entries()].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+  }, [monthlyTx]);
+
+  const monthLabel = new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric", timeZone: "Asia/Bangkok" }).format(new Date());
 
   async function requestInsight(question?: string) {
     if (!ctx.isAuthenticated) { setInsightError("กรุณาเข้าสู่ระบบก่อน"); return; }
@@ -599,13 +624,14 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
       const res = await fetch("/api/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
-        body: JSON.stringify(buildInsightContext(ctx.transactions, question)),
+        body: JSON.stringify(buildInsightContext(monthlyTx, monthLabel, question)),
       });
       const data = await res.json() as { ok: boolean; insight?: string; error?: string };
       if (!res.ok || !data.ok || !data.insight) {
         setInsightError(data.error ?? "วิเคราะห์ไม่สำเร็จ");
       } else {
         setAiInsight(data.insight);
+        setInputValue("");
       }
     } catch {
       setInsightError("เกิดข้อผิดพลาด กรุณาลองใหม่");
@@ -614,90 +640,110 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
     }
   }
 
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const q = inputValue.trim();
+    if (q) requestInsight(q);
+  }
+
   const isLoading = activeQ !== null;
 
   return (
     <section className="grid gap-5">
       <PeriodSummaryCards summaries={ctx.periodSummary} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+
+        {/* ── Monthly category breakdown ── */}
         <div className="surface p-6 sm:p-7">
-          <SectionHead icon={<PieChart size={16} />} title="Category breakdown" />
-          <div className="mt-6 space-y-4">
-            {ctx.catTotals.length > 0
-              ? ctx.catTotals.map((item) => (
-                  <CatBar key={item.category} label={item.category} amount={item.amount} max={ctx.summary.totalExpense || 1} />
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-[15px] font-semibold">หมวดหมู่{monthLabel ? ` · ${monthLabel}` : ""}</h3>
+            <span className="font-figures text-[13px] text-[var(--text-muted)]">
+              ฿{monthExpense.toLocaleString("th-TH", { minimumFractionDigits: 0 })}
+            </span>
+          </div>
+          <div className="space-y-4">
+            {monthCatTotals.length > 0
+              ? monthCatTotals.map((item) => (
+                  <CatBar key={item.category} label={item.category} amount={item.amount} max={monthExpense || 1} />
                 ))
-              : <p className="text-[14px] text-[var(--muted)]">ยังไม่มีรายจ่ายวันนี้</p>}
+              : <p className="text-[14px] text-[var(--text-muted)]">ยังไม่มีรายจ่ายเดือนนี้</p>}
           </div>
         </div>
 
-        <div className="flex flex-col gap-5">
-          {/* ── AI Insights ── */}
-          <div className="surface p-6 sm:p-7">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[var(--muted)]"><Sparkles size={16} /></span>
-                <h3 className="text-[15px] font-semibold">AI Insights</h3>
-              </div>
-              <button
-                className="secondary-button text-[12px] gap-1.5"
-                onClick={() => requestInsight()}
-                disabled={isLoading || !ctx.isAuthenticated}
-                type="button"
-              >
-                {activeQ === "__general__" ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Sparkles size={12} />
-                )}
-                {activeQ === "__general__" ? "กำลังวิเคราะห์..." : "วิเคราะห์"}
-              </button>
+        {/* ── Analysis panel ── */}
+        <div className="surface p-6 sm:p-7 flex flex-col gap-4">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-semibold">วิเคราะห์เดือนนี้</h3>
+              <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                {monthlyTx.length} รายการ · ใช้ไป ฿{monthExpense.toLocaleString("th-TH", { minimumFractionDigits: 0 })}
+              </p>
             </div>
-            <div className="mt-5 min-h-[3rem]">
-              {aiInsight ? (
-                <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] animate-in">
-                  {aiInsight}
-                </p>
-              ) : insightError ? (
-                <p className="text-[13px] text-[var(--expense)]">{insightError}</p>
-              ) : (
-                <p className="text-[14px] text-[var(--text-muted)]">
-                  กด &ldquo;วิเคราะห์&rdquo; หรือเลือกคำถามด้านล่าง
-                </p>
-              )}
-            </div>
+            <button
+              className="secondary-button text-[12px] gap-1.5 shrink-0"
+              onClick={() => requestInsight()}
+              disabled={isLoading || !ctx.isAuthenticated}
+              type="button"
+            >
+              {activeQ === "__general__" && <Loader2 size={12} className="animate-spin" />}
+              {activeQ === "__general__" ? "กำลังวิเคราะห์..." : "สรุปภาพรวม"}
+            </button>
           </div>
 
-          {/* ── Quick questions ── */}
-          <div className="surface p-6 sm:p-7">
-            <SectionHead icon={<MessageSquareText size={16} />} title="Quick questions" />
-            <div className="mt-4 space-y-1.5">
-              {QUICK_QUESTIONS.map((q) => (
-                <button
-                  className="prompt-button"
-                  key={q}
-                  onClick={() => requestInsight(q)}
-                  disabled={isLoading}
-                  type="button"
-                >
-                  <div className="flex items-center gap-2">
-                    {activeQ === q && (
-                      <Loader2 size={12} className="animate-spin text-[var(--text-muted)] shrink-0" />
-                    )}
-                    <span className="text-[14px]">{q}</span>
-                  </div>
-                  <ChevronRight size={13} className="text-[var(--text-muted)] shrink-0" />
-                </button>
-              ))}
+          {/* Response */}
+          {(aiInsight || insightError) && (
+            <div className={`rounded-xl p-4 text-[14px] leading-[1.7] animate-in ${
+              insightError
+                ? "bg-[var(--expense-soft)] text-[var(--expense)]"
+                : "bg-[var(--bg-base)] text-[var(--text-secondary)]"
+            }`}>
+              {aiInsight ?? insightError}
             </div>
+          )}
+
+          {/* Suggestion chips */}
+          <div className="flex flex-wrap gap-2">
+            {SUGGEST_CHIPS.map(q => (
+              <button
+                key={q}
+                type="button"
+                disabled={isLoading}
+                onClick={() => requestInsight(q)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3 py-1.5 text-[12px] text-[var(--text-muted)] transition-colors hover:border-[var(--border-hover)] hover:text-[var(--text-secondary)] disabled:opacity-40"
+              >
+                {activeQ === q && <Loader2 size={10} className="animate-spin shrink-0" />}
+                {q}
+              </button>
+            ))}
           </div>
+
+          {/* Freeform input */}
+          <form onSubmit={handleSubmit} className="flex gap-2 mt-auto pt-1">
+            <input
+              className="field text-[14px] flex-1 min-w-0"
+              placeholder="ถามอะไรก็ได้..."
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !inputValue.trim() || !ctx.isAuthenticated}
+              className="secondary-button px-3 shrink-0 disabled:opacity-40"
+            >
+              {isLoading && activeQ === inputValue.trim()
+                ? <Loader2 size={14} className="animate-spin" />
+                : <Send size={14} />}
+            </button>
+          </form>
         </div>
       </div>
     </section>
   );
 }
 
-function buildInsightContext(transactions: Transaction[], question?: string) {
+function buildInsightContext(transactions: Transaction[], period: string, question?: string) {
   const expenses = transactions.filter(t => t.type === "expense");
   const income = transactions.filter(t => t.type === "income");
   const totalExpense = expenses.reduce((s, t) => s + t.amount + t.fee, 0);
@@ -710,7 +756,7 @@ function buildInsightContext(transactions: Transaction[], question?: string) {
   const categories = [...catMap.entries()]
     .map(([name, { amount, count }]) => ({ name, amount, count }))
     .sort((a, b) => b.amount - a.amount);
-  return { totalExpense, totalIncome, transactionCount: transactions.length, categories, question };
+  return { totalExpense, totalIncome, transactionCount: transactions.length, categories, period, question };
 }
 function SettingsView({ ctx }: { ctx: AppCtx }) {
   async function handleSignOut() {
