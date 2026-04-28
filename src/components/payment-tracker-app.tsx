@@ -13,15 +13,12 @@ import {
   useState,
 } from "react";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
-  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   FileDown,
   Home,
-  LockKeyhole,
   LogIn,
+  LogOut,
   MessageSquareText,
   PanelLeftClose,
   PanelLeftOpen,
@@ -32,7 +29,6 @@ import {
   Share2,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
   UploadCloud,
   WalletCards,
 } from "lucide-react";
@@ -410,8 +406,8 @@ function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
       <div className="flex items-center gap-3 px-3 pb-6">
         <div className="brand-mark"><WalletCards size={15} /></div>
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Personal</p>
-          <p className="text-[13px] font-semibold leading-tight tracking-tight">Payment Tracker</p>
+          <p className="font-display text-[15px] font-semibold tracking-tight">Spendly</p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5 tracking-wide">Finance Tracker</p>
         </div>
       </div>
       <nav className="flex flex-col gap-0.5">
@@ -467,8 +463,8 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
           {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
         </button>
         <div>
-          <Link className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors" href="/">
-            Payment Tracker
+          <Link className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors" href="/">
+            Spendly
           </Link>
           <h2 className="font-display mt-0.5 text-2xl font-semibold tracking-tight sm:text-3xl">
             {titles[active]}
@@ -597,19 +593,16 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
         <div className="flex flex-col gap-5">
           <div className="surface p-6 sm:p-7">
             <SectionHead icon={<Sparkles size={16} />} title="AI review" />
-            <p className="mt-5 text-[15px] leading-relaxed text-[var(--muted)]">{ctx.summary.insight}</p>
-            <div className="mt-5 rounded-xl bg-[var(--soft)] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Summary mode</p>
-              <p className="mt-1 text-[13px] text-[var(--text-secondary)]">Local summary from confirmed transactions only</p>
-            </div>
+            <p className="mt-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">{ctx.summary.insight}</p>
+            <p className="mt-4 text-[12px] text-[var(--text-muted)]">Based on today's confirmed transactions</p>
           </div>
           <div className="surface p-6 sm:p-7">
-            <SectionHead icon={<MessageSquareText size={16} />} title="Money chat" />
-            <div className="mt-5 space-y-2">
+            <SectionHead icon={<MessageSquareText size={16} />} title="Quick questions" />
+            <div className="mt-4 space-y-1.5">
               {["วันนี้ใช้ไปเท่าไหร่?", "เดือนนี้หมดกับอะไรเยอะสุด?", "ร้านไหนจ่ายบ่อยสุด?"].map((q) => (
                 <button className="prompt-button" key={q} type="button">
-                  <span>{q}</span>
-                  <ChevronRight size={14} className="text-[var(--muted)]" />
+                  <span className="text-[14px]">{q}</span>
+                  <ChevronRight size={13} className="text-[var(--text-muted)] shrink-0" />
                 </button>
               ))}
             </div>
@@ -620,41 +613,118 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
   );
 }
 function SettingsView({ ctx }: { ctx: AppCtx }) {
+  async function handleSignOut() {
+    const supabase = getBrowserSupabaseClient();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    window.location.reload();
+  }
+
+  const synced = ctx.hasSupabase && ctx.isAuthenticated;
+
   return (
-    <section className="grid gap-5 lg:grid-cols-2">
-      <div className="surface p-6 sm:p-7">
-        <SectionHead icon={<LockKeyhole size={16} />} title="Account & auth" />
-        <StatusRows items={[
-          ["Session", ctx.authLabel],
-          ["Supabase", ctx.hasSupabase ? "Configured" : "Not configured"],
-        ]} />
+    <div className="max-w-xl space-y-6 animate-in">
+      {/* ── Profile ── */}
+      <div className="surface p-5 flex items-center gap-4">
+        {ctx.userMeta?.avatar_url ? (
+          <img
+            src={ctx.userMeta.avatar_url}
+            alt=""
+            className="w-12 h-12 rounded-full border border-[var(--border-subtle)] object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-[var(--gold)] text-[#0A0A0C] flex items-center justify-center text-lg font-bold shrink-0">
+            {ctx.isAuthenticated ? (ctx.authLabel?.charAt(0)?.toUpperCase() ?? "U") : "?"}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold truncate">
+            {ctx.userMeta?.full_name || (ctx.isAuthenticated ? "User" : "Guest")}
+          </p>
+          <p className="text-[13px] text-[var(--text-muted)] truncate mt-0.5">
+            {ctx.isAuthenticated ? ctx.authLabel : "ยังไม่ได้เข้าสู่ระบบ"}
+          </p>
+        </div>
+        {ctx.isAuthenticated ? (
+          <button
+            className="secondary-button text-[13px] gap-2 shrink-0"
+            onClick={handleSignOut}
+            type="button"
+          >
+            <LogOut size={14} />
+            Sign out
+          </button>
+        ) : (
+          <button
+            className="primary-button text-[13px] gap-2 shrink-0"
+            onClick={ctx.handleGoogleLogin}
+            type="button"
+          >
+            <LogIn size={14} />
+            Sign in
+          </button>
+        )}
       </div>
-      <div className="surface p-6 sm:p-7">
-        <SectionHead icon={<ShieldCheck size={16} />} title="Security controls" />
-        <StatusRows items={[
-          ["RLS", "All tables enabled"],
-          ["Storage", "Private slips bucket"],
-          ["Upload", "MIME + magic bytes verified"],
-          ["CSP", "Nonce-based, strict-dynamic"],
-        ]} />
+
+      {/* ── System ── */}
+      <div>
+        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">System</p>
+        <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-[14px] text-[var(--text-secondary)]">Cloud sync</span>
+            <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full ${synced ? "bg-[var(--income)]" : "bg-[var(--text-disabled)]"}`} />
+              <span className={`text-[13px] ${synced ? "text-[var(--income)]" : "text-[var(--text-muted)]"}`}>
+                {synced ? "Active" : "Offline"}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-[14px] text-[var(--text-secondary)]">Currency</span>
+            <span className="text-[13px] text-[var(--text-muted)]">Thai Baht (฿)</span>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-[14px] text-[var(--text-secondary)]">Timezone</span>
+            <span className="text-[13px] text-[var(--text-muted)]">Bangkok (UTC+7)</span>
+          </div>
+        </div>
       </div>
-      <div className="surface p-6 sm:p-7">
-        <SectionHead icon={<WalletCards size={16} />} title="Ledger preferences" />
-        <StatusRows items={[
-          ["Currency", "Thai baht"],
-          ["Save behavior", "Confirm before save"],
-          ["Browser cache", "Disabled for financial data"],
-        ]} />
+
+      {/* ── Data ── */}
+      <div>
+        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Data</p>
+        <div className="surface overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-[var(--bg-elevated)] transition-colors"
+            type="button"
+          >
+            <div className="flex items-center gap-3">
+              <FileDown size={15} className="text-[var(--text-muted)] shrink-0" />
+              <span className="text-[14px]">Export transactions</span>
+            </div>
+            <span className="text-[12px] font-figures text-[var(--text-muted)]">CSV</span>
+          </button>
+        </div>
       </div>
-      <div className="surface p-6 sm:p-7">
-        <SectionHead icon={<Sparkles size={16} />} title="Interface" />
-        <StatusRows items={[
-          ["Font", "SF Pro + Noto Sans Thai"],
-          ["Tone", "Minimal product UI"],
-          ["Theme", "Dark canvas"],
-        ]} />
+
+      {/* ── About ── */}
+      <div>
+        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">About</p>
+        <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-[14px] text-[var(--text-secondary)]">App</span>
+            <span className="text-[13px] text-[var(--text-muted)]">Spendly</span>
+          </div>
+          <div className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-[14px] text-[var(--text-secondary)]">Security</span>
+            <div className="flex items-center gap-1.5 text-[var(--income)]">
+              <ShieldCheck size={13} />
+              <span className="text-[13px]">Secured</span>
+            </div>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -862,18 +932,6 @@ function ConfWarn({ slip }: { slip: SlipExtractionResult | null }) {
   );
 }
 
-function StatusRows({ items }: { items: [string, string][] }) {
-  return (
-    <div className="mt-4">
-      {items.map(([k, v]) => (
-        <div className="status-row" key={k}>
-          <span className="text-[var(--muted)]">{k}</span>
-          <span className="font-medium">{v}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
 async function authHeaders(): Promise<HeadersInit> {
   const csrfToken = document.cookie
     ?.split("; ")

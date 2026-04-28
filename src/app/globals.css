@@ -220,9 +220,14 @@ select.field {
   background: var(--bg-surface);
   box-shadow: var(--shadow-md);
   contain: layout;
-  transition: box-shadow 200ms ease, transform 200ms ease;
+  transition: box-shadow 200ms ease;
 }
 .surface:hover { box-shadow: var(--shadow-lg); }
+
+/* Settings rows — iOS-style list items */
+.surface.overflow-hidden {
+  contain: style;
+}
 
 .app-hero-panel {
   border-radius: var(--radius-xl);
