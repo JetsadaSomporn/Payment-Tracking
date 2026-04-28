@@ -11,8 +11,9 @@ import { NextResponse } from "next/server";
  * double-sided session termination — client clears localStorage,
  * server clears HttpOnly cookies.
  */
-export async function POST() {
-  const response = NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"));
+export async function POST(request: Request) {
+  const origin = new URL(request.url).origin;
+  const response = NextResponse.redirect(new URL("/", origin));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
