@@ -374,8 +374,9 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       }).length
     : 0;
 
-  const nodeCount = layoutNodesRef.current.length;
-  const edgeCount = edgesRef.current.length;
+  // Use memoized nodes/edges count (refs may be empty during first render)
+  const nodeCount = nodes.length;
+  const edgeCount = edges.length;
 
   return (
     <div ref={containerRef} className="relative w-full select-none">

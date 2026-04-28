@@ -449,7 +449,7 @@ function TopBar({ active, ctx, onLogin, sidebarOpen, onToggleSidebar }: {
     <header className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-3">
         <button
-          className="icon-button shrink-0 hidden lg:inline-flex"
+          className="hidden shrink-0 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--panel)] text-[var(--muted)] hover:bg-[var(--soft)] hover:text-[var(--foreground)] transition-colors size-9 lg:flex"
           onClick={onToggleSidebar}
           title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           type="button"
@@ -747,8 +747,24 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
   async function handleSignOut() {
     const supabase = getBrowserSupabaseClient();
     if (!supabase) return;
-    await supabase.auth.signOut();
-    window.location.reload();
+
+    try {
+      // 1. Sign out on the client
+      await supabase.auth.signOut();
+
+      // 2. Sign out on the server to clear HttpOnly cookies
+      await fetch("/api/auth/signout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    } catch (err) {
+      console.error("Sign out failed:", err);
+    } finally {
+      // 3. Reload to clear any remaining state and redirect to landing
+      window.location.reload();
+    }
   }
 
   const synced = ctx.hasSupabase && ctx.isAuthenticated;
