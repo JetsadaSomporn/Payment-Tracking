@@ -74,15 +74,15 @@ export default function OverviewView({ periodSummary }: Props) {
         </div>
 
         <div className="mt-8 flex flex-wrap gap-2">
-          <Link className="dock-action is-primary" href="/upload">
+          <Link className="dock-action is-primary" href="/a">
             <UploadCloud size={15} />
             Upload slip
           </Link>
-          <Link className="dock-action" href="/transactions">
+          <Link className="dock-action" href="/t">
             <ReceiptText size={15} />
             Ledger
           </Link>
-          <Link className="dock-action" href="/insights">
+          <Link className="dock-action" href="/i">
             <Sparkles size={15} />
             Insights
           </Link>

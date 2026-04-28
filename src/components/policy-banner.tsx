@@ -52,13 +52,13 @@ export default function PolicyBanner() {
                   ยอมรับและใช้งานต่อ
                 </button>
                 <Link
-                  href="/privacy"
+                  href="/p"
                   className="ghost-button text-[13px] px-3 py-2"
                 >
                   นโยบายความเป็นส่วนตัว
                 </Link>
                 <Link
-                  href="/terms"
+                  href="/e"
                   className="ghost-button text-[13px] px-3 py-2"
                 >
                   ข้อกำหนด

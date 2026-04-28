@@ -51,7 +51,7 @@ export default function LandingPage() {
           </div>
           <Link
             className="inline-flex min-h-9 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-neutral-950 hover:bg-neutral-100 transition-colors"
-            href="/app"
+            href="/m"
           >
             Open app
             <ArrowRight size={14} />
@@ -73,14 +73,14 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link
                 className="inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-neutral-950 hover:bg-neutral-100 transition-colors"
-                href="/upload"
+                href="/a"
               >
                 Upload first slip
                 <UploadCloud size={15} />
               </Link>
               <Link
                 className="inline-flex min-h-12 items-center gap-2 rounded-full border border-white/15 px-6 text-sm font-semibold text-white/80 hover:border-white/30 hover:text-white transition-colors"
-                href="/app"
+                href="/m"
               >
                 View dashboard
               </Link>
@@ -242,14 +242,14 @@ export default function LandingPage() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-neutral-950 hover:bg-neutral-100 transition-colors"
-                href="/upload"
+                href="/a"
               >
                 Start with a slip
                 <ReceiptText size={15} />
               </Link>
               <Link
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 text-sm font-semibold text-white/70 hover:border-white/30 hover:text-white transition-colors"
-                href="/settings"
+                href="/s"
               >
                 Review controls
                 <CheckCircle2 size={15} />

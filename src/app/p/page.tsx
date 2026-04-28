@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
       <div className="mx-auto max-w-2xl px-5 py-8 sm:py-12">
         <Link
-          href="/app"
+          href="/m"
           className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
         >
           <ArrowLeft size={15} />
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
 
         <div className="mt-12 pt-6 border-t border-[var(--line)] text-center">
           <Link
-            href="/terms"
+            href="/e"
             className="text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
           >
             อ่านข้อกำหนดการใช้งาน →

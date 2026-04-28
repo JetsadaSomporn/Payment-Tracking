@@ -82,12 +82,12 @@ const navItems: Array<{
   view: PaymentTrackerView;
   icon: ReactNode;
 }> = [
-  { href: "/app", label: "Today", view: "dashboard", icon: <Home size={16} strokeWidth={2} /> },
-  { href: "/graph", label: "Graph", view: "graph", icon: <Share2 size={16} strokeWidth={2} /> },
-  { href: "/upload", label: "Upload", view: "upload", icon: <UploadCloud size={16} strokeWidth={2} /> },
-  { href: "/transactions", label: "Timeline", view: "transactions", icon: <ReceiptText size={16} strokeWidth={2} /> },
-  { href: "/insights", label: "Insights", view: "insights", icon: <Sparkles size={16} strokeWidth={2} /> },
-  { href: "/settings", label: "Settings", view: "settings", icon: <Settings size={16} strokeWidth={2} /> },
+  { href: "/m", label: "Today", view: "dashboard", icon: <Home size={16} strokeWidth={2} /> },
+  { href: "/g", label: "Graph", view: "graph", icon: <Share2 size={16} strokeWidth={2} /> },
+  { href: "/a", label: "Upload", view: "upload", icon: <UploadCloud size={16} strokeWidth={2} /> },
+  { href: "/t", label: "Timeline", view: "transactions", icon: <ReceiptText size={16} strokeWidth={2} /> },
+  { href: "/i", label: "Insights", view: "insights", icon: <Sparkles size={16} strokeWidth={2} /> },
+  { href: "/s", label: "Settings", view: "settings", icon: <Settings size={16} strokeWidth={2} /> },
 ];
 
 const initialTransactions: Transaction[] = [];
@@ -842,11 +842,11 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
       <div>
         <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Legal</p>
         <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
-          <Link href="/privacy" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
+          <Link href="/p" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
             <span className="text-[14px] text-[var(--text-secondary)]">Privacy Policy</span>
             <ChevronRight size={14} className="text-[var(--text-muted)]" />
           </Link>
-          <Link href="/terms" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
+          <Link href="/e" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
             <span className="text-[14px] text-[var(--text-secondary)]">Terms of Service</span>
             <ChevronRight size={14} className="text-[var(--text-muted)]" />
           </Link>
@@ -947,7 +947,7 @@ function TxList({ transactions, ctx, compact = false }: { transactions: Transact
               เริ่มจากอัปโหลดสลิปหรือเพิ่มรายการด้วยตนเอง รายการที่บันทึกจะปรากฏที่นี่
             </p>
             {!compact && (
-              <Link className="dock-action is-primary mt-4" href="/upload">
+              <Link className="dock-action is-primary mt-4" href="/a">
                 <UploadCloud size={15} />
                 เพิ่มรายการ
               </Link>
