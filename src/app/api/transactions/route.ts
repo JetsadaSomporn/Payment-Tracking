@@ -7,7 +7,8 @@ import {
   requireCsrfToken,
   requireSameOrigin,
 } from "@/lib/security/api";
-import { decryptField, encryptField, hashField } from "@/lib/security/encryption";
+import { decryptField, encryptField, hashField, signRow, verifyRowSignature, randomUUID } from "@/lib/security/encryption";
+import type { SignableRow } from "@/lib/security/encryption";
 import {
   createAuthenticatedSupabaseClient,
   requireAuthenticatedUser,
@@ -56,13 +57,46 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("transactions")
     .select(
-      "id,type,amount,fee,currency,title,ai_category,bank_name,receiver_name,reference_no,transaction_date,transaction_time,source,created_at",
+      "id,type,amount,fee,currency,title,ai_category,bank_name,receiver_name,reference_no,transaction_date,transaction_time,source,created_at,user_id,row_signature",
     )
     .order("created_at", { ascending: false })
     .limit(200);
 
   if (error) {
     return jsonError("transaction load failed", 500);
+  }
+
+  // Verify row-level HMAC signatures — detect tampering
+  const tamperedIds: string[] = [];
+  const transactions = data.map((row) => {
+    const sigStatus = verifyRowSignature({
+      id: String(row.id),
+      user_id: String(row.user_id),
+      type: String(row.type),
+      amount: Number(row.amount),
+      fee: Number(row.fee),
+      transaction_date: String(row.transaction_date),
+      title: String(row.title),
+      bank_name: row.bank_name ? String(row.bank_name) : null,
+      receiver_name: row.receiver_name ? String(row.receiver_name) : null,
+      reference_no: row.reference_no ? String(row.reference_no) : null,
+      row_signature: row.row_signature ? String(row.row_signature) : null,
+    });
+
+    if (sigStatus === "tampered") {
+      tamperedIds.push(String(row.id));
+      console.error(
+        `[SECURITY] Row tamper detected — transaction ${row.id} for user ${row.user_id} has invalid HMAC signature`,
+      );
+    }
+
+    return mapTransactionRow(row, auth.user.id);
+  });
+
+  if (tamperedIds.length > 0) {
+    console.error(
+      `[SECURITY] ${tamperedIds.length} tampered row(s) detected: ${tamperedIds.join(", ")}`,
+    );
   }
 
   return jsonOk(
@@ -119,32 +153,16 @@ export async function POST(request: Request) {
     return jsonError("Supabase persistence is required", 503);
   }
 
-  const protectedFields = protectSensitiveFields(parsed.data);
+  const signed = buildSignedInsertObject(parsed.data, auth.user.id);
 
-  if (!protectedFields.ok) {
-    return jsonError("transaction encryption is not configured", 503);
+  if (!signed.ok) {
+    return jsonError((signed as { ok: false; error: string }).error, 503);
   }
 
   const supabase = createAuthenticatedSupabaseClient(auth.accessToken);
   const { data, error } = await supabase
     .from("transactions")
-    .insert({
-      user_id: auth.user.id,
-      type: parsed.data.type,
-      amount: parsed.data.amount,
-      fee: parsed.data.fee,
-      currency: "THB",
-      title: protectedFields.value.title,
-      ai_category: parsed.data.categoryName,
-      transaction_date: parsed.data.transactionDate,
-      transaction_time: parsed.data.transactionTime || null,
-      bank_name: protectedFields.value.bankName,
-      receiver_name: protectedFields.value.receiverName,
-      reference_no: protectedFields.value.referenceNo,
-      reference_no_hash: protectedFields.value.referenceNoHash,
-      source: "slip",
-      status: "confirmed",
-    })
+    .insert(signed.insertObj)
     .select(
       "id,type,amount,fee,currency,title,ai_category,bank_name,receiver_name,reference_no,transaction_date,transaction_time,source,created_at",
     )
@@ -177,23 +195,7 @@ export async function POST(request: Request) {
         // Retry the insert
         const { data: retryData, error: retryError } = await supabase
           .from("transactions")
-          .insert({
-            user_id: auth.user.id,
-            type: parsed.data.type,
-            amount: parsed.data.amount,
-            fee: parsed.data.fee,
-            currency: "THB",
-            title: protectedFields.value.title,
-            ai_category: parsed.data.categoryName,
-            transaction_date: parsed.data.transactionDate,
-            transaction_time: parsed.data.transactionTime || null,
-            bank_name: protectedFields.value.bankName,
-            receiver_name: protectedFields.value.receiverName,
-            reference_no: protectedFields.value.referenceNo,
-            reference_no_hash: protectedFields.value.referenceNoHash,
-            source: "slip",
-            status: "confirmed",
-          })
+          .insert(signed.insertObj)
           .select(
             "id,type,amount,fee,currency,title,ai_category,bank_name,receiver_name,reference_no,transaction_date,transaction_time,source,created_at",
           )
@@ -305,19 +307,63 @@ function mapTransactionRow(
   };
 }
 
-function protectSensitiveFields(data: z.infer<typeof transactionSchema>) {
+/**
+ * Encrypt sensitive fields, pre-generate UUID, and sign the row with HMAC.
+ * Returns the complete insert object ready for Supabase.
+ *
+ * We pre-generate the UUID so the signature covers the row id — this prevents
+ * row-swap attacks where an attacker replaces the id after insert.
+ */
+function buildSignedInsertObject(
+  data: z.infer<typeof transactionSchema>,
+  userId: string,
+):
+  | { ok: true; insertObj: Record<string, unknown> }
+  | { ok: false; error: string }
+{
   try {
+    const id = randomUUID();
+    const encryptedTitle = encryptField(data.title);
+    const encryptedBankName = data.bankName ? encryptField(data.bankName) : null;
+    const encryptedReceiverName = data.receiverName ? encryptField(data.receiverName) : null;
+    const encryptedReferenceNo = data.referenceNo ? encryptField(data.referenceNo) : null;
+
+    const signature = signRow({
+      id,
+      user_id: userId,
+      type: data.type,
+      amount: data.amount,
+      fee: data.fee,
+      transaction_date: data.transactionDate,
+      title: encryptedTitle,
+      bank_name: encryptedBankName,
+      receiver_name: encryptedReceiverName,
+      reference_no: encryptedReferenceNo,
+    });
+
     return {
-      ok: true as const,
-      value: {
-        title: encryptField(data.title),
-        bankName: data.bankName ? encryptField(data.bankName) : null,
-        receiverName: data.receiverName ? encryptField(data.receiverName) : null,
-        referenceNo: data.referenceNo ? encryptField(data.referenceNo) : null,
-        referenceNoHash: hashField(data.referenceNo),
+      ok: true,
+      insertObj: {
+        id,
+        user_id: userId,
+        type: data.type,
+        amount: data.amount,
+        fee: data.fee,
+        currency: "THB",
+        title: encryptedTitle,
+        ai_category: data.categoryName,
+        transaction_date: data.transactionDate,
+        transaction_time: data.transactionTime || null,
+        bank_name: encryptedBankName,
+        receiver_name: encryptedReceiverName,
+        reference_no: encryptedReferenceNo,
+        reference_no_hash: hashField(data.referenceNo),
+        row_signature: signature,
+        source: "slip",
+        status: "confirmed",
       },
     };
   } catch {
-    return { ok: false as const };
+    return { ok: false, error: "transaction encryption/signing is not configured" };
   }
 }
