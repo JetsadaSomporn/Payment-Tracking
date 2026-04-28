@@ -118,20 +118,25 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
 
   // ── Sign out ───────────────────────────────────────────────────────────
   async function handleSignOut() {
-    const { getBrowserSupabaseClient } = await import("@/lib/supabase/client");
-    const supabase = getBrowserSupabaseClient();
-    if (!supabase) {
-      window.location.href = "/";
-      return;
+    try {
+      const { getBrowserSupabaseClient } = await import("@/lib/supabase/client");
+      const supabase = getBrowserSupabaseClient();
+      if (!supabase) {
+        window.location.href = "/api/auth/signout";
+        return;
+      }
+
+      // 1. Sign out on Supabase (clears localStorage + invalidates tokens)
+      const { error } = await supabase.auth.signOut();
+      console.log("[signout] client signOut result:", error ? `error: ${error.message}` : "ok");
+
+      // 2. Navigate to server-side cookie clearer
+      // Using window.location to do a GET navigation — cookies are automatically sent
+      window.location.href = "/api/auth/signout";
+    } catch (err) {
+      console.error("[signout] failed:", err);
+      window.location.href = "/api/auth/signout";
     }
-
-    await supabase.auth.signOut();
-
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/api/auth/signout";
-    document.body.appendChild(form);
-    form.submit();
   }
 
   // ── Theme ──────────────────────────────────────────────────────────────

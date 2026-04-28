@@ -8,7 +8,15 @@ import { NextRequest, NextResponse } from "next/server";
  * the Supabase session, invalidates it, clears all sb-* HttpOnly
  * cookies, and redirects to the landing page.
  */
+export async function GET(request: NextRequest) {
+  return handleSignout(request);
+}
+
 export async function POST(request: NextRequest) {
+  return handleSignout(request);
+}
+
+async function handleSignout(request: NextRequest) {
   // Build redirect response first — we'll attach cleared cookies to it
   const response = NextResponse.redirect(new URL("/", request.url));
 
@@ -38,10 +46,11 @@ export async function POST(request: NextRequest) {
   );
 
   // Terminate the session on Supabase — this invalidates the refresh token
-  await supabase.auth.signOut();
+  const { error: signOutError } = await supabase.auth.signOut();
+  console.log("[signout:api] supabase.auth.signOut result:", signOutError ? `error: ${signOutError.message}` : "ok");
 
   // Belt-and-suspenders: also find any sb-* cookies directly from the request
-  // and expire them. This catches cookies that Supabase's signOut might miss.
+  const clearedCookies: string[] = [];
   request.cookies.getAll().forEach((cookie) => {
     if (cookie.name.startsWith("sb-")) {
       response.cookies.set(cookie.name, "", {
@@ -51,8 +60,10 @@ export async function POST(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV !== "development",
       });
+      clearedCookies.push(cookie.name);
     }
   });
+  console.log("[signout:api] cleared sb-* cookies:", clearedCookies);
 
   // Clear CSRF token too
   response.cookies.set("csrf-token", "", {
