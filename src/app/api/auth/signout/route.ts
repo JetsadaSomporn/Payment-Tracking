@@ -1,12 +1,58 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
+/**
+ * POST /api/auth/signout
+ *
+ * Server-side sign-out that clears HttpOnly Supabase auth cookies
+ * and redirects to the landing page.
+ *
+ * Called by client after supabase.auth.signOut() to complete
+ * double-sided session termination — client clears localStorage,
+ * server clears HttpOnly cookies.
+ */
 export async function POST() {
-  const supabase = await createSupabaseServerClient();
-  
-  // This will trigger the setAll in createSupabaseServerClient 
-  // which will clear the HttpOnly cookies by setting them with an expired date.
+  const response = NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"));
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return [];
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name }) => {
+            response.cookies.set(name, "", {
+              path: "/",
+              maxAge: 0,
+              sameSite: "lax",
+              httpOnly: name.startsWith("sb-"),
+              secure: process.env.NODE_ENV !== "development",
+            });
+          });
+        },
+      },
+    },
+  );
+
+  // Destroy session on Supabase
   await supabase.auth.signOut();
-  
-  return NextResponse.json({ ok: true });
+
+  // Belt-and-suspenders: explicitly clear all known Supabase cookie patterns
+  const cookieNames = [
+    "sb-access-token",
+    "sb-refresh-token",
+    "sb-provider-token",
+    "sb-auth-token",
+    "csrf-token",
+  ];
+
+  cookieNames.forEach((name) => {
+    response.cookies.set(name, "", { path: "/", maxAge: 0 });
+    response.cookies.set(name, "", { path: "/", maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV !== "development", sameSite: "lax" });
+  });
+
+  return response;
 }

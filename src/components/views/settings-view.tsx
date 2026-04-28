@@ -43,9 +43,21 @@ export function SettingsView({ ctx }: { ctx: AppCtx }) {
   async function handleSignOut() {
     const { getBrowserSupabaseClient } = await import("@/lib/supabase/client");
     const supabase = getBrowserSupabaseClient();
-    if (!supabase) return;
+    if (!supabase) {
+      window.location.href = "/";
+      return;
+    }
+
+    // 1. Sign out on client (clears localStorage)
     await supabase.auth.signOut();
-    window.location.reload();
+
+    // 2. Sign out on server (clears HttpOnly cookies)
+    // POST triggers server-side cookie wipe + redirect to /
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/auth/signout";
+    document.body.appendChild(form);
+    form.submit();
   }
 
   function handleThemeChange(t: "dark" | "light" | "system") {
