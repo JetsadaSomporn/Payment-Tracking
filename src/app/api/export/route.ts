@@ -39,7 +39,7 @@ export async function GET(request: Request) {
     "Date", "Time", "Source", "Status", "Created At",
   ];
 
-  const escapeCsv = (val: string | null | undefined): string => {
+  const escapeCsv = (val: unknown): string => {
     if (val == null) return "";
     const s = String(val);
     if (s.includes(",") || s.includes('"') || s.includes("\n")) {
