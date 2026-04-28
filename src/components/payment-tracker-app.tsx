@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import {
+  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   FileDown,
@@ -115,6 +116,12 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), 3500);
+    return () => clearTimeout(t);
+  }, [message]);
 
   const today = todayBangkokDate();
   const todayTx = transactions.filter((t) => t.transactionDate === today);
@@ -335,8 +342,20 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
     handleFileChange, handleGoogleLogin, processSlip, saveTransaction, deleteTransaction,
   };
 
+  const isSuccessMsg = message?.includes("เรียบร้อย") || message?.includes("สำเร็จ");
+
   return (
     <main className="app-canvas min-h-screen text-[var(--foreground)]">
+      {message && (
+        <div className={`fixed bottom-24 left-1/2 z-[9999] -translate-x-1/2 flex items-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-medium shadow-xl transition-all animate-in lg:bottom-6 ${
+          isSuccessMsg
+            ? "bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold)]/20"
+            : "bg-[var(--expense-soft)] text-[var(--expense)] border border-[var(--expense)]/20"
+        }`}>
+          {isSuccessMsg ? <CheckCircle2 size={15} /> : "⚠"}
+          {message}
+        </div>
+      )}
       <div className="flex min-h-screen">
         {/* Sidebar — hidden on mobile, toggle on desktop */}
         <div
@@ -351,18 +370,11 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
             <TopBar
               active={initialView}
               ctx={ctx}
-              message={message}
               onLogin={handleGoogleLogin}
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
             />
             <div className="mt-6 sm:mt-8">
-              {/* Mobile-only toast */}
-              {message && (
-                <p className="mb-3 rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-2 text-[13px] text-[var(--muted)] sm:hidden animate-in">
-                  {message}
-                </p>
-              )}
               {initialView === "dashboard"     && <OverviewView transactions={transactions} periodSummary={periodSummary} />}
               {initialView === "graph"         && <GraphView transactions={transactions} />}
               {initialView === "upload"        && <UploadView ctx={ctx} />}
@@ -437,10 +449,9 @@ function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
     </aside>
   );
 }
-function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }: {
+function TopBar({ active, ctx, onLogin, sidebarOpen, onToggleSidebar }: {
   active: PaymentTrackerView;
   ctx: AppCtx;
-  message: string | null;
   onLogin: () => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -476,11 +487,6 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {message && (
-          <p className="hidden truncate rounded-lg border border-[var(--line)] bg-[var(--soft)] px-3 py-1.5 text-[13px] text-[var(--muted)] sm:block max-w-[220px]">
-            {message}
-          </p>
-        )}
         <ThemeToggle />
         {ctx.isLoadingAuth ? (
           <div className="w-9 h-9 rounded-full bg-[var(--line)] animate-pulse" />
@@ -1118,7 +1124,7 @@ function ThemeToggle() {
   );
 }
 
-async function authHeaders(): Promise<HeadersInit> {
+export async function authHeaders(): Promise<HeadersInit> {
   const csrfToken = document.cookie
     ?.split("; ")
     ?.find((r) => r.startsWith("csrf-token="))

@@ -9,6 +9,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import type { AppCtx } from "@/components/payment-tracker-app";
+import { authHeaders } from "@/components/payment-tracker-app";
 import { todayBangkokDate, parseAmount } from "@/lib/money";
 
 type EntryMode = "upload" | "manual";
@@ -271,7 +272,7 @@ function ReviewPanel({ ctx }: { ctx: AppCtx }) {
 }
 
 function ManualMode({ ctx }: { ctx: AppCtx }) {
-  const [localDraft, setLocalDraft] = useState({
+  const emptyLocal = () => ({
     type: "expense" as "income" | "expense" | "transfer",
     amount: "",
     fee: "0",
@@ -280,24 +281,30 @@ function ManualMode({ ctx }: { ctx: AppCtx }) {
     transactionDate: todayBangkokDate(),
     transactionTime: "",
   });
+  const [localDraft, setLocalDraft] = useState(emptyLocal);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
 
   const cats = localDraft.type === "income" ? incomeCategories : expenseCategories;
+
+  function showToast(type: "ok" | "err", msg: string) {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 3000);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amount = parseAmount(localDraft.amount);
     const fee = parseAmount(localDraft.fee) ?? 0;
-    if (!amount || amount <= 0) {
-      return;
-    }
-    if (!localDraft.title.trim()) return;
+    if (!amount || amount <= 0) { showToast("err", "กรอกจำนวนเงินให้ถูกต้อง"); return; }
+    if (!localDraft.title.trim()) { showToast("err", "กรอกชื่อรายการด้วย"); return; }
 
     setSaving(true);
     try {
+      const headers = await authHeaders();
       const res = await fetch("/api/transactions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...headers },
         body: JSON.stringify({
           type: localDraft.type,
           amount,
@@ -306,22 +313,36 @@ function ManualMode({ ctx }: { ctx: AppCtx }) {
           categoryName: localDraft.categoryName,
           transactionDate: localDraft.transactionDate,
           transactionTime: localDraft.transactionTime || null,
-          source: "manual",
         }),
       });
-      const data = await res.json();
-      if (data.ok && data.transaction) {
-        // Ideally we'd refresh transactions; since we don't have direct access,
-        // we can just reload the page or show success
-        window.location.reload();
+      const data = (await res.json()) as { ok: boolean; transaction?: unknown; error?: string };
+      if (res.ok && data.ok && data.transaction) {
+        ctx.setDraft(ctx.draft); // trigger re-fetch in parent
+        setLocalDraft(emptyLocal());
+        showToast("ok", "บันทึกเรียบร้อย");
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        showToast("err", res.status === 403 ? "Session หมดอายุ กรุณา refresh" : (data.error ?? "บันทึกไม่สำเร็จ"));
       }
+    } catch {
+      showToast("err", "เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="surface p-6 sm:p-7 max-w-xl">
+    <div className="surface p-6 sm:p-7 max-w-xl relative">
+      {toast && (
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-medium shadow-lg transition-all animate-in ${
+          toast.type === "ok"
+            ? "bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold)]/20"
+            : "bg-[var(--expense-soft)] text-[var(--expense)] border border-[var(--expense)]/20"
+        }`}>
+          {toast.type === "ok" ? <CheckCircle2 size={14} /> : "⚠"}
+          {toast.msg}
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-6">
         <FileText size={16} className="text-[var(--text-muted)]" />
         <h3 className="text-[12px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
