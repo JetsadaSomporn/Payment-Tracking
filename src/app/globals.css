@@ -82,13 +82,46 @@
   --radius-full: 9999px;
 }
 
-/* ── Dark only ── */
+/* ── Force dark even on light-preferring OS ── */
 @media (prefers-color-scheme: light) {
   :root {
     --bg-base: #0A0A0C;
     --bg-surface: #111114;
     --text-primary: #F5F5F7;
   }
+}
+
+/* ── Light theme — clean Apple/Tesla aesthetic ── */
+[data-theme="light"] {
+  --bg-base:     #F5F5F7;
+  --bg-surface:  #FFFFFF;
+  --bg-elevated: #EFEFEF;
+  --bg-field:    #E8E8EA;
+  --bg-hover:    #E2E2E4;
+
+  --border-subtle: rgba(0,0,0,0.07);
+  --border-hover:  rgba(0,0,0,0.11);
+  --border-active: rgba(0,0,0,0.16);
+
+  --text-primary:   #1C1C1E;
+  --text-secondary: #3A3A3C;
+  --text-muted:     #6C6C70;
+  --text-disabled:  #AEAEB2;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px -2px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05);
+  --shadow-lg: 0 12px 32px -6px rgba(0,0,0,0.09), 0 0 0 1px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 60px -10px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05);
+
+  /* legacy aliases */
+  --background: var(--bg-base);
+  --foreground: var(--text-primary);
+  --muted: var(--text-muted);
+  --panel: var(--bg-surface);
+  --chrome: var(--bg-base);
+  --soft: var(--bg-elevated);
+  --nav-active: var(--bg-elevated);
+  --line: var(--border-subtle);
 }
 
 /* ── Base reset ── */

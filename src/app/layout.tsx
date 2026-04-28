@@ -25,7 +25,7 @@ const robotoMono = Roboto_Mono({
 import { AuthProvider } from "@/providers/auth-provider";
 
 export const metadata: Metadata = {
-  title: "Payment Tracker",
+  title: "Spendly",
   description: "Track Thai bank slip expenses with a confirmation-first flow.",
 };
 
@@ -46,6 +46,14 @@ export default function RootLayout({
       className={`h-full antialiased ${inter.variable} ${notoThai.variable} ${robotoMono.variable}`}
     >
       <body className="min-h-full">
+        {/* Anti-FOUC: restore saved theme before first paint */}
+        <script
+          suppressHydrationWarning
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('spendly-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}`,
+          }}
+        />
         <AuthProvider>
           {children}
         </AuthProvider>

@@ -20,6 +20,7 @@ import {
   LogIn,
   LogOut,
   MessageSquareText,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   PieChart,
@@ -29,6 +30,7 @@ import {
   Share2,
   ShieldCheck,
   Sparkles,
+  Sun,
   UploadCloud,
   WalletCards,
 } from "lucide-react";
@@ -93,7 +95,7 @@ type DraftTransaction = {
   categoryName: string; transactionDate: string; transactionTime: string;
 };
 
-type PeriodKey = "day" | "week" | "month";
+type PeriodKey = "day" | "week" | "month" | "all";
 
 export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?: PaymentTrackerView }) {
   const {
@@ -477,7 +479,7 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
             {message}
           </p>
         )}
-        
+        <ThemeToggle />
         {ctx.isLoadingAuth ? (
           <div className="w-9 h-9 rounded-full bg-[var(--line)] animate-pulse" />
         ) : isAuthenticated ? (
@@ -932,6 +934,37 @@ function ConfWarn({ slip }: { slip: SlipExtractionResult | null }) {
   );
 }
 
+function ThemeToggle() {
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("spendly-theme");
+    if (stored === "light") setIsDark(false);
+  }, []);
+
+  function toggle() {
+    const next = isDark ? "light" : "dark";
+    setIsDark(!isDark);
+    if (next === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+    localStorage.setItem("spendly-theme", next);
+  }
+
+  return (
+    <button
+      className="icon-button"
+      onClick={toggle}
+      type="button"
+      title={isDark ? "Light mode" : "Dark mode"}
+    >
+      {isDark ? <Sun size={15} /> : <Moon size={15} />}
+    </button>
+  );
+}
+
 async function authHeaders(): Promise<HeadersInit> {
   const csrfToken = document.cookie
     ?.split("; ")
@@ -959,13 +992,15 @@ function categoryTotals(transactions: Transaction[]) {
 
 function buildPeriodSummary(transactions: Transaction[]) {
   return {
-    day: summarizeToday(transactions.filter((tx) => isInPeriod(tx.transactionDate, "day"))),
-    week: summarizeToday(transactions.filter((tx) => isInPeriod(tx.transactionDate, "week"))),
+    day:   summarizeToday(transactions.filter((tx) => isInPeriod(tx.transactionDate, "day"))),
+    week:  summarizeToday(transactions.filter((tx) => isInPeriod(tx.transactionDate, "week"))),
     month: summarizeToday(transactions.filter((tx) => isInPeriod(tx.transactionDate, "month"))),
+    all:   summarizeToday(transactions),
   };
 }
 
 function isInPeriod(isoDate: string, period: PeriodKey) {
+  if (period === "all") return true;
   const today = todayBangkokDate();
 
   if (period === "day") {
