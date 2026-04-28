@@ -73,83 +73,94 @@ export default function TimelineView({ transactions, onDelete }: Props) {
 
   if (grouped.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <PeriodToggle />
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-white/20">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-          </svg>
-          <span className="text-sm">ยังไม่มีรายการในช่วงนี้</span>
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+          <div className="grid size-14 place-items-center rounded-2xl bg-[var(--soft)] text-[var(--text-disabled)]">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </div>
+          <p className="text-[15px] text-[var(--muted)]">ยังไม่มีรายการในช่วงนี้</p>
+          <p className="text-[13px] text-[var(--text-disabled)]">เริ่มบันทึกรายการแรกของคุณ</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <PeriodToggle />
 
-      <div className="space-y-6">
-        {grouped.map((group) => (
-          <div key={group.dateIso}>
-            <div className="mb-3 flex items-center gap-3">
-              <h3 className="text-sm font-semibold text-white/50">{group.dateLabel}</h3>
-              <div className="flex-1 border-b border-white/[0.05]" />
-              <span className="text-[11px] text-white/20">
-                ฿{group.items.reduce((sum, t) => sum + t.amount + t.fee, 0).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-              </span>
-            </div>
+      <div className="space-y-8">
+        {grouped.map((group) => {
+          const groupTotal = group.items.reduce((sum, t) => {
+            if (t.type === "income") return sum - t.amount - t.fee;
+            return sum + t.amount + t.fee;
+          }, 0);
 
-            <div className="space-y-2">
-              {group.items.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="group flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.02] px-4 py-3 hover:bg-white/[0.04] transition-colors"
-                >
-                  {/* Category dot */}
-                  <div className="h-2.5 w-2.5 rounded-full bg-orange-500 shrink-0" />
+          return (
+            <div key={group.dateIso}>
+              <div className="mb-4 flex items-center gap-3">
+                <h3 className="text-[13px] font-semibold text-[var(--text-secondary)]">{group.dateLabel}</h3>
+                <div className="flex-1 border-b border-[var(--border-subtle)]" />
+                <span className="font-figures text-[12px] text-[var(--text-muted)]">
+                  ฿{Math.abs(groupTotal).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
 
-                  {/* Info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-white/80 truncate">
-                      {tx.title || tx.receiverName || tx.categoryName}
-                    </div>
-                    <div className="mt-0.5 flex gap-2 text-[11px] text-white/25">
-                      <span>{tx.categoryName}</span>
-                      {tx.bankName && <span>· {tx.bankName}</span>}
-                      {tx.transactionTime && <span>· {tx.transactionTime}</span>}
-                    </div>
-                  </div>
+              <div className="space-y-1.5">
+                {group.items.map((tx) => {
+                  const isIncome = tx.type === "income";
+                  const isTransfer = tx.type === "transfer";
+                  const prefix = isIncome ? "+" : isTransfer ? "⇄" : "−";
+                  const colorClass = isIncome ? "text-[var(--income)]" : isTransfer ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]";
 
-                  {/* Amount */}
-                  <div className={`text-sm font-semibold shrink-0 ${tx.type === "expense" ? "text-red-400" : "text-emerald-400"}`}>
-                    {tx.type === "expense" ? "-" : "+"}
-                    ฿{(tx.amount + tx.fee).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-                  </div>
-
-                  {/* Delete button — visible on hover */}
-                  {onDelete && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDelete(tx.id); }}
-                      className="shrink-0 rounded p-1 text-white/10 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all"
-                      title="ลบรายการ"
+                  return (
+                    <div
+                      key={tx.id}
+                      className="group flex items-center gap-3.5 rounded-xl border border-transparent px-3.5 py-3.5 transition-colors hover:bg-[var(--soft)] hover:border-[var(--border-subtle)]"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <line x1="10" y1="11" x2="10" y2="17" />
-                        <line x1="14" y1="11" x2="14" y2="17" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[14px] font-medium text-[var(--text-primary)] truncate">
+                          {tx.title || tx.receiverName || tx.categoryName}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap gap-x-2 text-[12px] text-[var(--text-muted)]">
+                          <span>{tx.categoryName}</span>
+                          {tx.bankName && <span>· {tx.bankName}</span>}
+                          {tx.transactionTime && <span>· {tx.transactionTime}</span>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`font-figures text-[15px] font-semibold ${colorClass}`}>
+                          {prefix}฿{(tx.amount + tx.fee).toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                        </span>
+                        {onDelete && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onDelete(tx.id); }}
+                            className="shrink-0 rounded-lg p-1.5 text-[var(--text-disabled)] opacity-0 transition-all hover:bg-[var(--expense-soft)] hover:text-[var(--expense)] group-hover:opacity-100"
+                            title="ลบรายการ"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <line x1="10" y1="11" x2="10" y2="17" />
+                              <line x1="14" y1="11" x2="14" y2="17" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -15,12 +15,9 @@ import {
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Bot,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
-  FileCheck2,
   FileDown,
   Home,
   LockKeyhole,
@@ -30,7 +27,6 @@ import {
   PanelLeftOpen,
   PieChart,
   ReceiptText,
-  ScanLine,
   Search,
   Settings,
   Share2,
@@ -44,7 +40,6 @@ import { formatTHB, parseAmount, todayBangkokDate } from "@/lib/money";
 import { summarizeToday } from "@/lib/summary";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SlipExtractionResult, Transaction } from "@/lib/types";
-import { SpendingChart } from "./SpendingChart";
 import { useAuth } from "@/providers/auth-provider";
 import GraphView from "@/components/views/graph-view";
 import OverviewView from "@/components/views/overview-view";
@@ -65,18 +60,18 @@ const categories = [
 ];
 
 const categoryColor = new Map<string, string>([
-  ["อาหาร", "#111827"],
-  ["เดินทาง", "#2563EB"],
-  ["ช้อปปิ้ง", "#475569"],
-  ["บิล/บริการ", "#0F172A"],
-  ["สุขภาพ", "#64748B"],
-  ["งาน/ธุรกิจ", "#334155"],
-  ["ครอบครัว", "#1E40AF"],
-  ["บันเทิง", "#6B7280"],
-  ["การศึกษา", "#1D4ED8"],
-  ["รายได้", "#111827"],
+  ["อาหาร", "#D4A853"],
+  ["เดินทาง", "#60A5FA"],
+  ["ช้อปปิ้ง", "#A78BFA"],
+  ["บิล/บริการ", "#FB923C"],
+  ["สุขภาพ", "#34D399"],
+  ["งาน/ธุรกิจ", "#22D3EE"],
+  ["ครอบครัว", "#F472B6"],
+  ["บันเทิง", "#818CF8"],
+  ["การศึกษา", "#2DD4BF"],
+  ["รายได้", "#34D399"],
   ["โอนเงิน", "#94A3B8"],
-  ["อื่น ๆ", "#9CA3AF"],
+  ["อื่น ๆ", "#71717A"],
 ]);
 
 const navItems: Array<{
@@ -351,8 +346,8 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
           <Sidebar active={initialView} ctx={ctx} />
         </div>
 
-        <div className="min-w-0 flex-1 px-4 py-4 pb-24 sm:px-6 lg:px-10 lg:pb-5">
-          <div className="mx-auto max-w-6xl">
+        <div className="min-w-0 flex-1 px-5 py-5 pb-28 sm:px-8 lg:px-12 lg:pb-8">
+          <div className="mx-auto max-w-5xl">
             <TopBar
               active={initialView}
               ctx={ctx}
@@ -361,7 +356,7 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((v) => !v)}
             />
-            <div className="mt-4 sm:mt-6">
+            <div className="mt-6 sm:mt-8">
               {/* Mobile-only toast */}
               {message && (
                 <p className="mb-3 rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-2 text-[13px] text-[var(--muted)] sm:hidden animate-in">
@@ -411,12 +406,12 @@ export type AppCtx = {
 };
 function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
   return (
-    <aside className="sidebar-chrome sticky top-0 hidden h-screen flex-col px-3 py-5 lg:flex">
-      <div className="flex items-center gap-2.5 px-2 pb-5">
+    <aside className="sidebar-chrome sticky top-0 hidden h-screen flex-col px-3 py-6 lg:flex">
+      <div className="flex items-center gap-3 px-3 pb-6">
         <div className="brand-mark"><WalletCards size={15} /></div>
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-widest text-[var(--muted)]">Personal</p>
-          <p className="text-[13px] font-semibold leading-tight">Payment Tracker</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Personal</p>
+          <p className="text-[13px] font-semibold leading-tight tracking-tight">Payment Tracker</p>
         </div>
       </div>
       <nav className="flex flex-col gap-0.5">
@@ -431,20 +426,11 @@ function Sidebar({ active, ctx }: { active: PaymentTrackerView; ctx: AppCtx }) {
           </Link>
         ))}
       </nav>
-      <div className="mt-auto flex flex-col gap-3 border-t border-[var(--line)] pt-4">
-        <div>
-          <p className="px-2 text-[11px] font-medium uppercase tracking-widest text-[var(--muted)]">Today</p>
-          <p className="font-figures mt-1 px-2 text-2xl font-medium tracking-tight">
-            {formatTHB(ctx.summary.totalExpense)}
-          </p>
-          <p className="px-2 text-[12px] text-[var(--muted)]">
-            {ctx.summary.transactionCount} items
-          </p>
-        </div>
-        <div className="rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-2.5">
-          <p className="text-[12px] font-medium truncate">{ctx.userMeta?.full_name || ctx.authLabel}</p>
-          <p className="mt-0.5 text-[11px] text-[var(--muted)]">
-            {ctx.hasSupabase ? "Supabase connected" : "Local development"}
+      <div className="mt-auto flex flex-col gap-3 border-t border-[var(--line)] pt-5">
+        <div className="rounded-xl bg-[var(--soft)] px-3.5 py-3">
+          <p className="text-[11px] font-medium text-[var(--muted)] truncate">{ctx.userMeta?.full_name || ctx.authLabel}</p>
+          <p className="mt-0.5 text-[11px] text-[var(--text-disabled)]">
+            {ctx.hasSupabase ? "Cloud sync on" : "Local mode"}
           </p>
         </div>
       </div>
@@ -470,9 +456,8 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
     : "U";
 
   return (
-    <header className="flex items-center justify-between gap-2 sm:gap-4">
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Sidebar toggle — desktop only */}
+    <header className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
         <button
           className="icon-button shrink-0 hidden lg:inline-flex"
           onClick={onToggleSidebar}
@@ -482,40 +467,37 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
           {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
         </button>
         <div>
-          <Link className="text-[11px] font-medium uppercase tracking-widest text-[var(--muted)] hover:text-[var(--foreground)]" href="/">
+          <Link className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors" href="/">
             Payment Tracker
           </Link>
-          <h2 className="font-display mt-0.5 text-xl font-semibold tracking-tight sm:text-3xl">
+          <h2 className="font-display mt-0.5 text-2xl font-semibold tracking-tight sm:text-3xl">
             {titles[active]}
           </h2>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      <div className="flex items-center gap-2">
         {message && (
-          <p className="hidden truncate rounded-md border border-[var(--line)] bg-[var(--soft)] px-3 py-1.5 text-[13px] text-[var(--muted)] sm:block max-w-[200px]">
+          <p className="hidden truncate rounded-lg border border-[var(--line)] bg-[var(--soft)] px-3 py-1.5 text-[13px] text-[var(--muted)] sm:block max-w-[220px]">
             {message}
           </p>
         )}
-        <button className="icon-button hidden sm:inline-flex" title="Search" type="button">
-          <Search size={16} />
-        </button>
         
         {ctx.isLoadingAuth ? (
-          <div className="w-8 h-8 rounded-full bg-[var(--line)] animate-pulse ml-1" />
+          <div className="w-9 h-9 rounded-full bg-[var(--line)] animate-pulse" />
         ) : isAuthenticated ? (
           ctx.userMeta?.avatar_url ? (
             <img 
               src={ctx.userMeta.avatar_url} 
               alt={ctx.userMeta.full_name || ctx.authLabel} 
-              className="w-8 h-8 rounded-full border border-[var(--line)] shadow-sm ml-1 object-cover" 
+              className="w-9 h-9 rounded-full border border-[var(--line)] shadow-sm object-cover" 
             />
           ) : (
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[var(--accent)] text-white font-semibold text-sm shadow-sm cursor-pointer ml-1">
+            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[var(--accent)] text-[#0A0A0C] font-semibold text-sm shadow-sm cursor-pointer">
               {userInitial}
             </div>
           )
         ) : (
-          <button className="primary-button text-[13px] sm:text-sm px-2.5 sm:px-3.5" onClick={onLogin} type="button">
+          <button className="primary-button text-[13px] sm:text-sm px-3 sm:px-4" onClick={onLogin} type="button">
             <LogIn size={15} />
             <span className="hidden sm:inline">Sign in</span>
           </button>
@@ -527,22 +509,22 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
 
 function MobileNav({ active }: { active: PaymentTrackerView }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--line)] bg-[var(--panel)]/95 backdrop-blur-xl lg:hidden safe-bottom-pb">
-      <div className="flex justify-around py-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--line)] bg-[var(--panel)]/90 backdrop-blur-2xl lg:hidden safe-bottom-pb">
+      <div className="flex justify-around py-1.5">
         {navItems.map((item) => {
           const isActive = item.view === active;
           return (
             <Link
               key={item.view}
               href={item.href}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px] font-medium transition-colors rounded-lg ${
+              className={`flex flex-col items-center gap-1 px-2 py-1.5 text-[11px] font-medium transition-colors rounded-xl ${
                 isActive
                   ? "text-[var(--foreground)]"
                   : "text-[var(--muted)]"
               }`}
             >
               <div className={`flex items-center justify-center rounded-lg p-1.5 ${
-                isActive ? "bg-[var(--soft)]" : ""
+                isActive ? "bg-[var(--soft)] text-[var(--gold)]" : ""
               }`}>
                 {item.icon}
               </div>
@@ -552,99 +534,6 @@ function MobileNav({ active }: { active: PaymentTrackerView }) {
         })}
       </div>
     </nav>
-  );
-}
-
-function DashboardView({ ctx }: { ctx: AppCtx }) {
-  const dateStr = new Intl.DateTimeFormat("th-TH", {
-    day: "numeric", month: "long", year: "numeric",
-    timeZone: "Asia/Bangkok",
-  }).format(new Date());
-
-  return (
-    <div className="grid gap-4">
-      <div className="app-hero-panel animate-in overflow-hidden p-5 sm:p-7 lg:p-9">
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <CalendarDays size={13} className="text-[var(--muted)]" />
-              <span className="text-[12px] font-medium text-[var(--muted)]">Bangkok · {dateStr}</span>
-            </div>
-            <div className="mt-5 flex items-start gap-1">
-              <span className="app-hero-currency mt-1">฿</span>
-              <span className="hero-amount">
-                {ctx.summary.totalExpense.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-
-            <p className="mt-3 max-w-2xl text-[14px] leading-6 text-[var(--muted)]">
-              {ctx.summary.transactionCount > 0
-                ? `${ctx.summary.transactionCount} รายการวันนี้ — ${ctx.summary.insight}`
-                : "ยังไม่มีรายการวันนี้ อัปโหลดสลิปแรกได้เลย"}
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                { icon: <ArrowDownRight size={14} />, label: "Expense", value: formatTHB(ctx.summary.totalExpense) },
-                { icon: <ArrowUpRight size={14} />, label: "Income",  value: formatTHB(ctx.summary.totalIncome) },
-                { icon: <TrendingUp size={14} />,    label: "Net",     value: formatTHB(ctx.summary.netAmount) },
-                { icon: <ReceiptText size={14} />,   label: "Items",   value: String(ctx.summary.transactionCount) },
-              ].map((m, i) => (
-                <div className={`metric-tile delay-${i + 1} animate-in`} key={m.label}>
-                  <div className="flex items-center gap-1.5 text-[var(--muted)]">
-                    {m.icon}
-                    <span className="text-[11px] font-medium uppercase tracking-wider">{m.label}</span>
-                  </div>
-                  <p className="metric-value">{m.value}</p>
-                </div>
-              ))}
-            </div>
-            
-            {/* Added Premium Line Chart for data visualization */}
-            <div className="mt-8 pt-6 border-t border-[var(--line)]">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp size={14} className="text-[var(--muted)]" />
-                <span className="text-[12px] font-semibold text-[var(--muted)] tracking-wider uppercase">Spending Trend</span>
-              </div>
-              <SpendingChart transactions={ctx.transactions} />
-            </div>
-          </div>
-          <div className="action-dock xl:flex-col">
-            <Link className="dock-action is-primary" href="/upload">
-              <UploadCloud size={15} />
-              Upload
-            </Link>
-            <Link className="dock-action" href="/transactions">
-              <ReceiptText size={15} />
-              Ledger
-            </Link>
-            <Link className="dock-action" href="/insights">
-              <Sparkles size={15} />
-              Insights
-            </Link>
-          </div>
-        </div>
-      </div>
-      <PeriodSummaryCards summaries={ctx.periodSummary} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_380px]">
-        <div className="surface animate-in delay-2 p-5 sm:p-6">
-          <SectionHead icon={<ReceiptText size={16} />} title="Recent transactions" href="/transactions" linkLabel="View all" />
-          <TxList transactions={ctx.todayTx} ctx={ctx} compact />
-        </div>
-        <div className="surface animate-in delay-3 p-5 sm:p-6">
-          <SectionHead icon={<Sparkles size={16} />} title="Daily brief" />
-          <p className="mt-4 text-[14px] leading-relaxed text-[var(--muted)]">
-            {ctx.summary.insight}
-          </p>
-          {ctx.catTotals.length > 0 && (
-            <div className="mt-5 space-y-3">
-              {ctx.catTotals.slice(0, 4).map((item) => (
-                <CatBar key={item.category} label={item.category} amount={item.amount} max={ctx.summary.totalExpense || 1} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -662,11 +551,11 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
   );
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <PeriodSummaryCards summaries={ctx.periodSummary} />
-      <div className="surface flex flex-wrap items-center gap-2 p-3">
-        <div className="flex min-w-52 flex-1 items-center gap-2 rounded-md border border-[var(--line)] px-3 py-2 text-[13px] text-[var(--muted)]">
-          <Search size={14} />
+      <div className="surface flex flex-wrap items-center gap-2.5 p-3.5">
+        <div className="flex min-w-52 flex-1 items-center gap-2.5 rounded-lg border border-[var(--line)] bg-[var(--bg-base)] px-3.5 py-2.5 text-[13px] text-[var(--muted)]">
+          <Search size={15} />
           <span>ค้นหารายการ ร้านค้า เลขอ้างอิง</span>
         </div>
         <select className="field w-auto" onChange={(e) => setCategory(e.target.value)} value={category}>
@@ -682,7 +571,7 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
         <button className="secondary-button" type="button"><FileDown size={14} />Export</button>
       </div>
 
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-6 sm:p-7">
         <SectionHead icon={<ReceiptText size={16} />} title="Ledger" linkLabel={`${filteredTransactions.length} items`} />
         <TxList transactions={filteredTransactions} ctx={ctx} />
       </div>
@@ -691,56 +580,56 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
 }
 function InsightsView({ ctx }: { ctx: AppCtx }) {
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-5">
       <PeriodSummaryCards summaries={ctx.periodSummary} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="surface p-5 sm:p-6">
-        <SectionHead icon={<PieChart size={16} />} title="Category breakdown" />
-        <div className="mt-5 space-y-4">
-          {ctx.catTotals.length > 0
-            ? ctx.catTotals.map((item) => (
-                <CatBar key={item.category} label={item.category} amount={item.amount} max={ctx.summary.totalExpense || 1} />
-              ))
-            : <p className="text-[13px] text-[var(--muted)]">ยังไม่มีรายจ่ายวันนี้</p>}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="surface p-6 sm:p-7">
+          <SectionHead icon={<PieChart size={16} />} title="Category breakdown" />
+          <div className="mt-6 space-y-4">
+            {ctx.catTotals.length > 0
+              ? ctx.catTotals.map((item) => (
+                  <CatBar key={item.category} label={item.category} amount={item.amount} max={ctx.summary.totalExpense || 1} />
+                ))
+              : <p className="text-[14px] text-[var(--muted)]">ยังไม่มีรายจ่ายวันนี้</p>}
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="surface p-5 sm:p-6">
-          <SectionHead icon={<Sparkles size={16} />} title="AI review" />
-          <p className="mt-4 text-[14px] leading-relaxed text-[var(--muted)]">{ctx.summary.insight}</p>
-          <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--soft)] p-3.5">
-            <p className="text-[12px] font-medium uppercase tracking-wider text-[var(--muted)]">Summary mode</p>
-            <p className="mt-1 text-[13px]">Local summary from confirmed transactions only</p>
+        <div className="flex flex-col gap-5">
+          <div className="surface p-6 sm:p-7">
+            <SectionHead icon={<Sparkles size={16} />} title="AI review" />
+            <p className="mt-5 text-[15px] leading-relaxed text-[var(--muted)]">{ctx.summary.insight}</p>
+            <div className="mt-5 rounded-xl bg-[var(--soft)] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">Summary mode</p>
+              <p className="mt-1 text-[13px] text-[var(--text-secondary)]">Local summary from confirmed transactions only</p>
+            </div>
+          </div>
+          <div className="surface p-6 sm:p-7">
+            <SectionHead icon={<MessageSquareText size={16} />} title="Money chat" />
+            <div className="mt-5 space-y-2">
+              {["วันนี้ใช้ไปเท่าไหร่?", "เดือนนี้หมดกับอะไรเยอะสุด?", "ร้านไหนจ่ายบ่อยสุด?"].map((q) => (
+                <button className="prompt-button" key={q} type="button">
+                  <span>{q}</span>
+                  <ChevronRight size={14} className="text-[var(--muted)]" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="surface p-5 sm:p-6">
-          <SectionHead icon={<MessageSquareText size={16} />} title="Money chat" />
-          <div className="mt-4 space-y-2">
-            {["วันนี้ใช้ไปเท่าไหร่?", "เดือนนี้หมดกับอะไรเยอะสุด?", "ร้านไหนจ่ายบ่อยสุด?"].map((q) => (
-              <button className="prompt-button" key={q} type="button">
-                <span>{q}</span>
-                <ChevronRight size={14} className="text-[var(--muted)]" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
       </div>
     </section>
   );
 }
 function SettingsView({ ctx }: { ctx: AppCtx }) {
   return (
-    <section className="grid gap-4 lg:grid-cols-2">
-      <div className="surface p-5 sm:p-6">
+    <section className="grid gap-5 lg:grid-cols-2">
+      <div className="surface p-6 sm:p-7">
         <SectionHead icon={<LockKeyhole size={16} />} title="Account & auth" />
         <StatusRows items={[
           ["Session", ctx.authLabel],
           ["Supabase", ctx.hasSupabase ? "Configured" : "Not configured"],
         ]} />
       </div>
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-6 sm:p-7">
         <SectionHead icon={<ShieldCheck size={16} />} title="Security controls" />
         <StatusRows items={[
           ["RLS", "All tables enabled"],
@@ -749,7 +638,7 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
           ["CSP", "Nonce-based, strict-dynamic"],
         ]} />
       </div>
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-6 sm:p-7">
         <SectionHead icon={<WalletCards size={16} />} title="Ledger preferences" />
         <StatusRows items={[
           ["Currency", "Thai baht"],
@@ -757,12 +646,12 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
           ["Browser cache", "Disabled for financial data"],
         ]} />
       </div>
-      <div className="surface p-5 sm:p-6">
+      <div className="surface p-6 sm:p-7">
         <SectionHead icon={<Sparkles size={16} />} title="Interface" />
         <StatusRows items={[
-          ["Font", "SF stack + Noto Sans Thai"],
+          ["Font", "SF Pro + Noto Sans Thai"],
           ["Tone", "Minimal product UI"],
-          ["Theme", "Light app canvas"],
+          ["Theme", "Dark canvas"],
         ]} />
       </div>
     </section>
@@ -800,7 +689,7 @@ function PeriodSummaryCards({ summaries }: { summaries: Record<PeriodKey, Return
   ];
 
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3">
       {items.map((item) => {
         const summary = summaries[item.key];
         return (
@@ -814,7 +703,7 @@ function PeriodSummaryCards({ summaries }: { summaries: Record<PeriodKey, Return
               </div>
               <CircleDollarSign size={18} className="text-[var(--muted)]" />
             </div>
-            <p className="font-figures mt-6 text-3xl font-semibold tracking-[-0.05em]">
+            <p className="font-figures mt-5 text-[32px] font-semibold tracking-[-0.04em]">
               {formatTHB(summary.totalExpense)}
             </p>
             <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-3 text-[12px] text-[var(--muted)]">
@@ -829,24 +718,22 @@ function PeriodSummaryCards({ summaries }: { summaries: Record<PeriodKey, Return
 }
 
 function TxList({ transactions, ctx, compact = false }: { transactions: Transaction[]; ctx?: AppCtx; compact?: boolean }) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
   if (transactions.length === 0) {
     return (
-      <div className="mt-4 rounded-lg border border-dashed border-[var(--line)] bg-[var(--soft)] p-5">
-        <div className="flex items-start gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-md bg-[var(--panel)] text-[var(--muted)]">
-            <ReceiptText size={16} />
+      <div className="mt-5 rounded-xl border border-dashed border-[var(--line)] bg-[var(--soft)] p-6">
+        <div className="flex items-start gap-3.5">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--panel)] text-[var(--muted)]">
+            <ReceiptText size={18} />
           </div>
           <div>
-            <p className="text-[14px] font-semibold">ยังไม่มีรายการจริงในระบบ</p>
-            <p className="mt-1 max-w-md text-[13px] leading-6 text-[var(--muted)]">
-              เริ่มจากอัปโหลดสลิป แล้วตรวจยอดเองก่อนบันทึก รายการที่เห็นตรงนี้จะมาจากข้อมูลที่มึงยืนยันแล้วเท่านั้น
+            <p className="text-[15px] font-semibold">ยังไม่มีรายการ</p>
+            <p className="mt-1 max-w-md text-[14px] leading-6 text-[var(--muted)]">
+              เริ่มจากอัปโหลดสลิปหรือเพิ่มรายการด้วยตนเอง รายการที่บันทึกจะปรากฏที่นี่
             </p>
             {!compact && (
-              <Link className="secondary-button mt-3" href="/upload">
-                <UploadCloud size={14} />
-                Upload slip
+              <Link className="dock-action is-primary mt-4" href="/upload">
+                <UploadCloud size={15} />
+                เพิ่มรายการ
               </Link>
             )}
           </div>
@@ -856,79 +743,45 @@ function TxList({ transactions, ctx, compact = false }: { transactions: Transact
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-0.5">
       {transactions.map((tx) => {
-        const color = categoryColor.get(tx.categoryName) ?? "#9CA3AF";
-        const isExpanded = expandedId === tx.id;
-        
-        // Find related transactions (Obsidian-style linked thinking)
-        let relatedByCategory = 0;
-        let relatedByMerchant = 0;
-        if (ctx && isExpanded) {
-          relatedByCategory = ctx.transactions.filter(t => t.categoryName === tx.categoryName && t.id !== tx.id).length;
-          relatedByMerchant = ctx.transactions.filter(t => t.receiverName === tx.receiverName && t.id !== tx.id).length;
-        }
+        const color = categoryColor.get(tx.categoryName) ?? "#71717A";
+        const isIncome = tx.type === "income";
+        const isTransfer = tx.type === "transfer";
+        const amountPrefix = isIncome ? "+" : isTransfer ? "⇄" : "−";
+        const amountColor = isIncome ? "var(--income)" : isTransfer ? "var(--text-secondary)" : "var(--text-primary)";
 
         return (
-          <div key={tx.id} className="border-b border-[var(--line)] last:border-none">
+          <div 
+            key={tx.id} 
+            className="group flex items-center gap-3.5 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--soft)]"
+          >
             <div 
-              className={`tx-row group cursor-pointer hover:bg-[var(--soft)] px-2 -mx-2 rounded-lg border-none ${isExpanded ? 'bg-[var(--soft)]' : ''}`}
-              onClick={() => setExpandedId(isExpanded ? null : tx.id)}
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="cat-badge mt-1.5" style={{ background: color }} />
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-medium">{tx.title}</p>
-                  <p className="mt-0.5 text-[12px] text-[var(--muted)]">
-                    {tx.categoryName}
-                    {tx.transactionTime ? ` · ${tx.transactionTime}` : ""}
-                    {!compact && tx.referenceNo ? ` · ${tx.referenceNo}` : ""}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <p className="font-figures text-[14px] font-medium text-[var(--foreground)]">
-                  −{formatTHB(tx.amount)}
-                </p>
-                {ctx?.deleteTransaction && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); ctx.deleteTransaction(tx.id); }}
-                    className="rounded p-1 text-[var(--muted)]/0 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all"
-                    title="ลบรายการ"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
-                )}
-              </div>
+              className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" 
+              style={{ background: color }} 
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-medium">{tx.title}</p>
+              <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                {tx.categoryName}
+                {tx.transactionTime ? ` · ${tx.transactionTime}` : ""}
+                {!compact && tx.referenceNo ? ` · ${tx.referenceNo}` : ""}
+              </p>
             </div>
-            
-            {/* Linked Relationships Panel */}
-            {isExpanded && ctx && (
-              <div className="animate-in mb-3 ml-7 mr-2 rounded-lg bg-[var(--panel)] border border-[var(--line)] p-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={14} className="text-[var(--muted)]" />
-                  <p className="text-[12px] font-semibold tracking-wider text-[var(--muted)] uppercase">Linked Connections</p>
-                </div>
-                
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div className="rounded-md bg-[var(--soft)] p-3 flex flex-col gap-1">
-                    <span className="text-[11px] text-[var(--muted)]">Category Network</span>
-                    <span className="text-[13px] font-medium">{tx.categoryName}</span>
-                    <span className="text-[12px] text-[var(--muted)] mt-1">
-                      {relatedByCategory > 0 ? `${relatedByCategory} related expenses` : 'First expense in this category'}
-                    </span>
-                  </div>
-                  
-                  <div className="rounded-md bg-[var(--soft)] p-3 flex flex-col gap-1">
-                    <span className="text-[11px] text-[var(--muted)]">Merchant Network</span>
-                    <span className="text-[13px] font-medium truncate">{tx.receiverName || tx.title}</span>
-                    <span className="text-[12px] text-[var(--muted)] mt-1">
-                      {relatedByMerchant > 0 ? `${relatedByMerchant} related expenses` : 'First visit to this merchant'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              <p className="font-figures text-[14px] font-semibold" style={{ color: amountColor }}>
+                {amountPrefix}{formatTHB(tx.amount + tx.fee)}
+              </p>
+              {ctx?.deleteTransaction && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); ctx.deleteTransaction(tx.id); }}
+                  className="rounded-lg p-1.5 text-[var(--text-disabled)] opacity-0 transition-all hover:bg-[var(--expense-soft)] hover:text-[var(--expense)] group-hover:opacity-100"
+                  title="ลบรายการ"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -937,20 +790,20 @@ function TxList({ transactions, ctx, compact = false }: { transactions: Transact
 }
 
 function CatBar({ label, amount, max }: { label: string; amount: number; max: number }) {
-  const pct = Math.max(4, Math.round((amount / max) * 100));
+  const pct = Math.max(3, Math.round((amount / max) * 100));
   const color = categoryColor.get(label) ?? "var(--foreground)";
 
   return (
     <div>
       <div className="flex items-center justify-between gap-3 text-[13px]">
-        <div className="flex items-center gap-2">
-          <span className="cat-badge" style={{ background: color }} />
+        <div className="flex items-center gap-2.5">
+          <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
           <span className="font-medium">{label}</span>
         </div>
         <span className="font-figures text-[var(--muted)]">{formatTHB(amount)}</span>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--soft)]">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--soft)]">
+        <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   );
