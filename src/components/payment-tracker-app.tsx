@@ -1037,7 +1037,16 @@ function ThemeToggle() {
 
   useEffect(() => {
     const stored = localStorage.getItem("spendly-theme");
-    if (stored === "light") setIsDark(false);
+    const isLight = stored === "light";
+    setIsDark(!isLight);
+    // Re-apply the attribute on every mount — Next.js strips data-theme
+    // from <html> during client-side navigation because the server-rendered
+    // RSC payload never includes it.
+    if (isLight) {
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
   }, []);
 
   function toggle() {
