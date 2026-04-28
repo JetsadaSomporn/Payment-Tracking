@@ -120,7 +120,7 @@ export default function LandingPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
               </div>
               <div className="mx-4 flex-1 rounded bg-white/[0.07] px-3 py-1 text-center font-figures text-[11px] text-white/30">
-                spendly-lovat.vercel.app/app
+                spendly-lovat.vercel.app/m
               </div>
             </div>
             <Image
@@ -184,7 +184,7 @@ export default function LandingPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
               </div>
               <div className="mx-4 flex-1 rounded bg-white/[0.07] px-3 py-1 text-center font-figures text-[11px] text-white/30">
-                spendly-lovat.vercel.app/upload
+                spendly-lovat.vercel.app/a
               </div>
             </div>
             <Image

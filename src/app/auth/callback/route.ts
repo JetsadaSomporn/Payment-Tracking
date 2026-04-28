@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/app";
+  const next = searchParams.get("next") ?? "/m";
   const host = request.headers.get("host");
 
   // ── Production Debug Logs ───────────────────────────────────────────────
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     console.error("[auth-callback] error: missing code");
-    return NextResponse.redirect(`${origin}/app?auth_error=missing_code`);
+    return NextResponse.redirect(`${origin}/m?auth_error=missing_code`);
   }
 
   const supabase = await createSupabaseServerClient();
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   if (exchangeError) {
     console.error("[auth-callback] exchange error:", exchangeError.message);
-    return NextResponse.redirect(`${origin}/app?auth_error=${encodeURIComponent(exchangeError.message)}`);
+    return NextResponse.redirect(`${origin}/m?auth_error=${encodeURIComponent(exchangeError.message)}`);
   }
 
   // Verify user immediately after exchange
