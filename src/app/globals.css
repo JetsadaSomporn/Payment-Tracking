@@ -170,7 +170,6 @@ button:disabled { cursor: not-allowed; }
 /* ── Layout ── */
 .app-canvas {
   background: var(--bg-base);
-  contain: layout style;
 }
 
 /* ── Sidebar — calm, precise ── */
