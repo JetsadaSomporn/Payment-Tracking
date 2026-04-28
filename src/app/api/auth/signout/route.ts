@@ -12,8 +12,7 @@ import { NextResponse } from "next/server";
  * server clears HttpOnly cookies.
  */
 export async function POST(request: Request) {
-  const origin = new URL(request.url).origin;
-  const response = NextResponse.redirect(new URL("/", origin));
+  const response = NextResponse.redirect(new URL("/", request.url));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

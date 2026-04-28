@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { connection } from "next/server";
 import {
   ArrowRight,
   CheckCircle2,
@@ -21,7 +22,8 @@ const controls = [
   ["Confidence", "Low-confidence extraction is shown as a warning, not silently trusted."],
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  await connection();
   return (
     <main className="bg-neutral-950 text-white">
 
