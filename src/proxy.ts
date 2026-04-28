@@ -23,8 +23,27 @@ function setSessionCache(key: string, value: number) {
   sessionCache.set(key, value);
 }
 
+const routeMap: Record<string, string> = {
+  "/m": "/app",
+  "/t": "/transactions",
+  "/a": "/upload",
+  "/i": "/insights",
+  "/s": "/settings",
+  "/g": "/graph",
+  "/p": "/privacy",
+  "/e": "/terms",
+};
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── Rewrite obfuscated paths to real internal routes ────────────────────
+  const realPath = routeMap[pathname];
+  if (realPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = realPath;
+    return NextResponse.rewrite(url);
+  }
 
   // ── Bypass Auth Callback ────────────────────────────────────────────────
   if (pathname.startsWith("/auth/callback")) {
