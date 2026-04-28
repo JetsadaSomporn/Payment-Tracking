@@ -42,6 +42,7 @@ import { summarizeToday } from "@/lib/summary";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { SlipExtractionResult, Transaction } from "@/lib/types";
 import { useAuth } from "@/providers/auth-provider";
+import { useToast } from "@/providers/toast-provider";
 import GraphView from "@/components/views/graph-view";
 import OverviewView from "@/components/views/overview-view";
 import TimelineView from "@/components/views/timeline-view";
@@ -114,14 +115,8 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
   const [extractedSlip, setExtractedSlip] = useState<SlipExtractionResult | null>(null);
   const [draft, setDraft] = useState<DraftTransaction>(emptyDraft());
   const [isProcessing, setIsProcessing] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { addToast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  useEffect(() => {
-    if (!message) return;
-    const t = setTimeout(() => setMessage(null), 3500);
-    return () => clearTimeout(t);
-  }, [message]);
 
   const today = todayBangkokDate();
   const todayTx = transactions.filter((t) => t.transactionDate === today);
@@ -144,7 +139,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       };
 
       if (!res.ok || !data.ok || !data.transactions) {
-        setMessage(data.error ?? "โหลดรายการไม่สำเร็จ");
+        addToast({ type: "error", message: data.error ?? "โหลดรายการไม่สำเร็จ" });
         setTransactions([]);
         return;
       }
@@ -152,7 +147,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       setTransactions(readStoredTransactions(data.transactions));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "โหลดรายการไม่สำเร็จ";
-      setMessage(errorMessage);
+      addToast({ type: "error", message: errorMessage });
       setTransactions([]);
     }
   }, [isAuthenticated]);
@@ -173,7 +168,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       
       if (!supabase) {
         console.error("[oauth-login] error: supabase client is null");
-        setMessage("ไม่สามารถเชื่อมต่อกับ Supabase ได้");
+        addToast({ type: "error", message: "ไม่สามารถเชื่อมต่อกับ Supabase ได้" });
         return;
       }
 
@@ -195,12 +190,12 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       });
 
       if (error) {
-        setMessage("Login error: " + error.message);
+        addToast({ type: "error", message: "Login error: " + error.message });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "unknown error";
       console.error("[oauth-login] catch block error:", msg);
-      setMessage("Login failed: " + msg);
+      addToast({ type: "error", message: "Login failed: " + msg });
     }
   }
 
@@ -208,17 +203,17 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
     const file = e.target.files?.[0] ?? null;
     setSelectedFile(file);
     setExtractedSlip(null);
-    setMessage(null);
+    ;
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(file ? URL.createObjectURL(file) : null);
   }
 
   async function processSlip() {
-    if (!selectedFile) { setMessage("เลือกไฟล์สลิปก่อน"); return; }
+    if (!selectedFile) { addToast({ type: "warning", message: "เลือกไฟล์สลิปก่อน" }); return; }
     setIsProcessing(true);
-    setMessage(null);
+    ;
     try {
-      setMessage("กำลังเตรียมรูปภาพและส่งให้ AI...");
+      addToast({ type: "info", message: "กำลังเตรียมรูปภาพและส่งให้ AI..." });
 
       // ── Client-side Image Optimization ──────────────────────────────────
       // Reduce image size to ~1000px height for faster upload & OCR
@@ -231,7 +226,7 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
       const data = (await res.json()) as { ok: boolean; error?: string; slip?: SlipExtractionResult };
       
       if (!res.ok || !data.ok || !data.slip) { 
-        setMessage(data.error ?? "อ่านสลิปไม่สำเร็จ"); 
+        addToast({ type: "error", message: data.error ?? "อ่านสลิปไม่สำเร็จ" }); 
         return; 
       }
       
@@ -245,14 +240,10 @@ export function PaymentTrackerApp({ initialView = "dashboard" }: { initialView?:
         transactionDate: data.slip.transactionDateIso ?? today,
         transactionTime: data.slip.transactionTime ?? "",
       });
-      setMessage(
-        data.slip.confidence < 0.75
-          ? "ยังอ่านสลิปได้ไม่ชัด — กรุณาตรวจสอบและกรอกเพิ่ม"
-          : "อ่านสลิปสำเร็จ — ตรวจสอบความถูกต้องก่อนบันทึก",
-      );
+      addToast({ type: data.slip.confidence < 0.75 ? "warning" : "success", message: data.slip.confidence < 0.75 ? "ยังอ่านสลิปได้ไม่ชัด — กรุณาตรวจสอบและกรอกเพิ่ม" : "อ่านสลิปสำเร็จ — ตรวจสอบความถูกต้องก่อนบันทึก" });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "อ่านสลิปไม่สำเร็จ";
-      setMessage(errorMessage);
+      addToast({ type: "error", message: errorMessage });
     } finally {
       setIsProcessing(false);
     }
@@ -286,13 +277,13 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
 
   async function saveTransaction(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!extractedSlip) { setMessage("ต้องอ่านสลิปก่อนบันทึก"); return; }
+    if (!extractedSlip) { addToast({ type: "warning", message: "ต้องอ่านสลิปก่อนบันทึก" }); return; }
     const amount = parseAmount(draft.amount);
     const fee = parseAmount(draft.fee) ?? 0;
-    if (!amount || amount <= 0) { setMessage("จำนวนเงินต้องมากกว่า 0"); return; }
-    if (!draft.title.trim()) { setMessage("กรอกก่อนว่าจ่ายอะไรไป"); return; }
+    if (!amount || amount <= 0) { addToast({ type: "warning", message: "จำนวนเงินต้องมากกว่า 0" }); return; }
+    if (!draft.title.trim()) { addToast({ type: "warning", message: "กรอกก่อนว่าจ่ายอะไรไป" }); return; }
     if (transactions.some((t) => t.referenceNo && extractedSlip.referenceNo && t.referenceNo === extractedSlip.referenceNo)) {
-      setMessage("สลิปนี้เคยบันทึกแล้ว");
+      addToast({ type: "warning", message: "สลิปนี้เคยบันทึกแล้ว" });
       return;
     }
     try {
@@ -304,17 +295,17 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
       });
       const data = (await res.json()) as { ok: boolean; transaction?: Transaction };
       if (!res.ok || !data.ok || !data.transaction) {
-        setMessage(res.status === 409 ? "รายการนี้เคยบันทึกแล้ว" : "บันทึกไม่สำเร็จ");
+        addToast({ type: "error", message: res.status === 409 ? "รายการนี้เคยบันทึกแล้ว" : "บันทึกไม่สำเร็จ" });
         return;
       }
       setTransactions((c) => [data.transaction!, ...c]);
       setExtractedSlip(null);
       setSelectedFile(null);
       setDraft(emptyDraft());
-      setMessage("บันทึกเรียบร้อย");
+      addToast({ type: "success", message: "บันทึกเรียบร้อย", title: "สำเร็จ" });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการบันทึกข้อมูล";
-      setMessage(errorMessage);
+      addToast({ type: "error", message: errorMessage });
     }
   }
 
@@ -326,36 +317,25 @@ async function resizeImage(file: File, maxDim: number): Promise<Blob> {
         headers,
       });
       if (!res.ok) {
-        setMessage("ลบรายการไม่สำเร็จ");
+        addToast({ type: "error", message: "ลบรายการไม่สำเร็จ" });
         return;
       }
       setTransactions((c) => c.filter((t) => t.id !== txId));
-      setMessage("ลบเรียบร้อย");
+      addToast({ type: "success", message: "ลบเรียบร้อย", title: "สำเร็จ" });
     } catch {
-      setMessage("เกิดข้อผิดพลาดในการลบข้อมูล");
+      addToast({ type: "error", message: "เกิดข้อผิดพลาดในการลบข้อมูล" });
     }
   }
 
   const ctx: AppCtx = {
-    authLabel, userMeta, user, isAuthenticated, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing, message,
+    authLabel, userMeta, user, isAuthenticated, isLoadingAuth, catTotals, draft, extractedSlip, hasSupabase, isProcessing,
     periodSummary, previewUrl, selectedFile, setDraft, summary, todayTx, transactions,
     handleFileChange, handleGoogleLogin, processSlip, saveTransaction, deleteTransaction,
   };
 
-  const isSuccessMsg = message?.includes("เรียบร้อย") || message?.includes("สำเร็จ");
 
   return (
     <main className="app-canvas min-h-screen text-[var(--foreground)]">
-      {message && (
-        <div className={`fixed bottom-24 left-1/2 z-[9999] -translate-x-1/2 flex items-center gap-2 rounded-2xl px-5 py-3 text-[13px] font-medium shadow-xl transition-all animate-in lg:bottom-6 ${
-          isSuccessMsg
-            ? "bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold)]/20"
-            : "bg-[var(--expense-soft)] text-[var(--expense)] border border-[var(--expense)]/20"
-        }`}>
-          {isSuccessMsg ? <CheckCircle2 size={15} /> : "⚠"}
-          {message}
-        </div>
-      )}
       <div className="flex min-h-screen">
         {/* Sidebar — hidden on mobile, toggle on desktop */}
         <div
@@ -402,7 +382,6 @@ export type AppCtx = {
   extractedSlip: SlipExtractionResult | null;
   hasSupabase: boolean;
   isProcessing: boolean;
-  message: string | null;
   previewUrl: string | null;
   periodSummary: Record<PeriodKey, ReturnType<typeof summarizeToday>>;
   selectedFile: File | null;
@@ -856,6 +835,21 @@ function SettingsView({ ctx }: { ctx: AppCtx }) {
             </div>
             <span className="text-[12px] font-figures text-[var(--text-muted)]">CSV</span>
           </button>
+        </div>
+      </div>
+
+      {/* ── Legal ── */}
+      <div>
+        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Legal</p>
+        <div className="surface overflow-hidden divide-y divide-[var(--border-subtle)]">
+          <Link href="/privacy" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
+            <span className="text-[14px] text-[var(--text-secondary)]">Privacy Policy</span>
+            <ChevronRight size={14} className="text-[var(--text-muted)]" />
+          </Link>
+          <Link href="/terms" className="flex items-center justify-between px-5 py-3.5 hover:bg-[var(--bg-elevated)] transition-colors">
+            <span className="text-[14px] text-[var(--text-secondary)]">Terms of Service</span>
+            <ChevronRight size={14} className="text-[var(--text-muted)]" />
+          </Link>
         </div>
       </div>
 

@@ -23,6 +23,7 @@ const robotoMono = Roboto_Mono({
 });
 
 import { AuthProvider } from "@/providers/auth-provider";
+import ClientProviders from "@/components/client-providers";
 
 export const metadata: Metadata = {
   title: "Spendly",
@@ -55,7 +56,9 @@ export default function RootLayout({
           }}
         />
         <AuthProvider>
-          {children}
+          <ClientProviders>
+            {children}
+          </ClientProviders>
         </AuthProvider>
       </body>
     </html>
