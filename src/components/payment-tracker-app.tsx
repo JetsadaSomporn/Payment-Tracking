@@ -17,6 +17,7 @@ import {
   CircleDollarSign,
   FileDown,
   Home,
+  Loader2,
   LogIn,
   LogOut,
   MessageSquareText,
@@ -576,7 +577,45 @@ function TransactionsView({ ctx }: { ctx: AppCtx }) {
     </div>
   );
 }
+const QUICK_QUESTIONS = [
+  "วันนี้ใช้ไปเท่าไหร่ และเยอะเกินไปไหม?",
+  "เดือนนี้หมดกับอะไรเยอะสุด?",
+  "ควรปรับพฤติกรรมการใช้จ่ายยังไง?",
+];
+
 function InsightsView({ ctx }: { ctx: AppCtx }) {
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [activeQ, setActiveQ] = useState<string | null>(null);
+  const [insightError, setInsightError] = useState<string | null>(null);
+
+  async function requestInsight(question?: string) {
+    if (!ctx.isAuthenticated) { setInsightError("กรุณาเข้าสู่ระบบก่อน"); return; }
+    if (ctx.transactions.length === 0) { setInsightError("ยังไม่มีข้อมูลรายการ"); return; }
+    const key = question ?? "__general__";
+    setActiveQ(key);
+    setInsightError(null);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch("/api/insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(buildInsightContext(ctx.transactions, question)),
+      });
+      const data = await res.json() as { ok: boolean; insight?: string; error?: string };
+      if (!res.ok || !data.ok || !data.insight) {
+        setInsightError(data.error ?? "วิเคราะห์ไม่สำเร็จ");
+      } else {
+        setAiInsight(data.insight);
+      }
+    } catch {
+      setInsightError("เกิดข้อผิดพลาด กรุณาลองใหม่");
+    } finally {
+      setActiveQ(null);
+    }
+  }
+
+  const isLoading = activeQ !== null;
+
   return (
     <section className="grid gap-5">
       <PeriodSummaryCards summaries={ctx.periodSummary} />
@@ -593,17 +632,60 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
         </div>
 
         <div className="flex flex-col gap-5">
+          {/* ── AI Insights ── */}
           <div className="surface p-6 sm:p-7">
-            <SectionHead icon={<Sparkles size={16} />} title="AI review" />
-            <p className="mt-5 text-[15px] leading-relaxed text-[var(--text-secondary)]">{ctx.summary.insight}</p>
-            <p className="mt-4 text-[12px] text-[var(--text-muted)]">Based on today's confirmed transactions</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]"><Sparkles size={16} /></span>
+                <h3 className="text-[15px] font-semibold">AI Insights</h3>
+              </div>
+              <button
+                className="secondary-button text-[12px] gap-1.5"
+                onClick={() => requestInsight()}
+                disabled={isLoading || !ctx.isAuthenticated}
+                type="button"
+              >
+                {activeQ === "__general__" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                {activeQ === "__general__" ? "กำลังวิเคราะห์..." : "วิเคราะห์"}
+              </button>
+            </div>
+            <div className="mt-5 min-h-[3rem]">
+              {aiInsight ? (
+                <p className="text-[15px] leading-relaxed text-[var(--text-secondary)] animate-in">
+                  {aiInsight}
+                </p>
+              ) : insightError ? (
+                <p className="text-[13px] text-[var(--expense)]">{insightError}</p>
+              ) : (
+                <p className="text-[14px] text-[var(--text-muted)]">
+                  กด &ldquo;วิเคราะห์&rdquo; หรือเลือกคำถามด้านล่าง
+                </p>
+              )}
+            </div>
           </div>
+
+          {/* ── Quick questions ── */}
           <div className="surface p-6 sm:p-7">
             <SectionHead icon={<MessageSquareText size={16} />} title="Quick questions" />
             <div className="mt-4 space-y-1.5">
-              {["วันนี้ใช้ไปเท่าไหร่?", "เดือนนี้หมดกับอะไรเยอะสุด?", "ร้านไหนจ่ายบ่อยสุด?"].map((q) => (
-                <button className="prompt-button" key={q} type="button">
-                  <span className="text-[14px]">{q}</span>
+              {QUICK_QUESTIONS.map((q) => (
+                <button
+                  className="prompt-button"
+                  key={q}
+                  onClick={() => requestInsight(q)}
+                  disabled={isLoading}
+                  type="button"
+                >
+                  <div className="flex items-center gap-2">
+                    {activeQ === q && (
+                      <Loader2 size={12} className="animate-spin text-[var(--text-muted)] shrink-0" />
+                    )}
+                    <span className="text-[14px]">{q}</span>
+                  </div>
                   <ChevronRight size={13} className="text-[var(--text-muted)] shrink-0" />
                 </button>
               ))}
@@ -613,6 +695,22 @@ function InsightsView({ ctx }: { ctx: AppCtx }) {
       </div>
     </section>
   );
+}
+
+function buildInsightContext(transactions: Transaction[], question?: string) {
+  const expenses = transactions.filter(t => t.type === "expense");
+  const income = transactions.filter(t => t.type === "income");
+  const totalExpense = expenses.reduce((s, t) => s + t.amount + t.fee, 0);
+  const totalIncome = income.reduce((s, t) => s + t.amount, 0);
+  const catMap = new Map<string, { amount: number; count: number }>();
+  for (const t of expenses) {
+    const cur = catMap.get(t.categoryName) ?? { amount: 0, count: 0 };
+    catMap.set(t.categoryName, { amount: cur.amount + t.amount + t.fee, count: cur.count + 1 });
+  }
+  const categories = [...catMap.entries()]
+    .map(([name, { amount, count }]) => ({ name, amount, count }))
+    .sort((a, b) => b.amount - a.amount);
+  return { totalExpense, totalIncome, transactionCount: transactions.length, categories, question };
 }
 function SettingsView({ ctx }: { ctx: AppCtx }) {
   async function handleSignOut() {
