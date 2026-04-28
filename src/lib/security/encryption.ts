@@ -186,3 +186,5 @@ export function verifyRowSignature(
 
   return "valid";
 }
+
+export { randomUUID };
