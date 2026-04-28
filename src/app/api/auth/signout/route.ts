@@ -1,17 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 /**
  * POST /api/auth/signout
  *
- * Server-side sign-out that clears HttpOnly Supabase auth cookies
- * and redirects to the landing page.
- *
- * Called by client after supabase.auth.signOut() to complete
- * double-sided session termination — client clears localStorage,
- * server clears HttpOnly cookies.
+ * Server-side sign-out that reads request cookies to identify
+ * the Supabase session, invalidates it, clears all sb-* HttpOnly
+ * cookies, and redirects to the landing page.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Build redirect response first — we'll attach cleared cookies to it
   const response = NextResponse.redirect(new URL("/", request.url));
 
   const supabase = createServerClient(
@@ -20,16 +18,18 @@ export async function POST(request: Request) {
     {
       cookies: {
         getAll() {
-          return [];
+          // Read all cookies from the incoming request so supabase-js
+          // can identify which session to terminate
+          return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name }) => {
+          // supabase.auth.signOut() calls this to clear cookies.
+          // Clear each one by setting maxAge=0 on the redirect response.
+          cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, "", {
+              ...options,
               path: "/",
               maxAge: 0,
-              sameSite: "lax",
-              httpOnly: name.startsWith("sb-"),
-              secure: process.env.NODE_ENV !== "development",
             });
           });
         },
@@ -37,21 +37,30 @@ export async function POST(request: Request) {
     },
   );
 
-  // Destroy session on Supabase
+  // Terminate the session on Supabase — this invalidates the refresh token
   await supabase.auth.signOut();
 
-  // Belt-and-suspenders: explicitly clear all known Supabase cookie patterns
-  const cookieNames = [
-    "sb-access-token",
-    "sb-refresh-token",
-    "sb-provider-token",
-    "sb-auth-token",
-    "csrf-token",
-  ];
+  // Belt-and-suspenders: also find any sb-* cookies directly from the request
+  // and expire them. This catches cookies that Supabase's signOut might miss.
+  request.cookies.getAll().forEach((cookie) => {
+    if (cookie.name.startsWith("sb-")) {
+      response.cookies.set(cookie.name, "", {
+        path: "/",
+        maxAge: 0,
+        sameSite: "lax" as const,
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== "development",
+      });
+    }
+  });
 
-  cookieNames.forEach((name) => {
-    response.cookies.set(name, "", { path: "/", maxAge: 0 });
-    response.cookies.set(name, "", { path: "/", maxAge: 0, httpOnly: true, secure: process.env.NODE_ENV !== "development", sameSite: "lax" });
+  // Clear CSRF token too
+  response.cookies.set("csrf-token", "", {
+    path: "/",
+    maxAge: 0,
+    sameSite: "strict" as const,
+    httpOnly: false,
+    secure: process.env.NODE_ENV !== "development",
   });
 
   return response;
