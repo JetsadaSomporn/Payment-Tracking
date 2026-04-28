@@ -151,6 +151,13 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+      // ── Theme-aware colors ────────────────────────────────────────────────
+      const isLight = document.documentElement.getAttribute("data-theme") === "light";
+      const bgColor = isLight ? "#F5F5F7" : "#0d0d10";
+      const dotColor = isLight ? "rgba(0,0,0," : "rgba(255,255,255,";
+      const labelColor = isLight ? "rgba(0,0,0," : "rgba(255,255,255,";
+      const ringColor = isLight ? "rgba(0,0,0," : "rgba(255,255,255,";
+
       const { x: tx, y: ty, scale: ts } = transformRef.current;
       const lnodes = layoutNodesRef.current;
       const ledges = edgesRef.current;
@@ -159,7 +166,7 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       const hov = hoveredRef.current;
 
       // ── Background ──────────────────────────────────────────────────────
-      ctx.fillStyle = "#0d0d10";
+      ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, W, H);
 
       // ── Obsidian dot grid ────────────────────────────────────────────────
@@ -168,7 +175,7 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       const ox = ((tx % dotSpacing) + dotSpacing) % dotSpacing;
       const oy = ((ty % dotSpacing) + dotSpacing) % dotSpacing;
       const dotOpacity = Math.min(0.07, 0.04 + ts * 0.012);
-      ctx.fillStyle = `rgba(255,255,255,${dotOpacity})`;
+      ctx.fillStyle = `${dotColor}${dotOpacity})`;
       for (let gx = ox - dotSpacing; gx < W + dotSpacing; gx += dotSpacing) {
         for (let gy = oy - dotSpacing; gy < H + dotSpacing; gy += dotSpacing) {
           ctx.beginPath();
@@ -243,8 +250,8 @@ export default function GraphView({ transactions }: { transactions: Transaction[
 
         // Ring border
         ctx.strokeStyle = isHighlighted
-          ? `rgba(255,255,255,${alpha * 0.55})`
-          : `rgba(255,255,255,${alpha * 0.1})`;
+          ? `${ringColor}${alpha * 0.55})`
+          : `${ringColor}${alpha * 0.1})`;
         ctx.lineWidth = (isHighlighted ? 1.5 : 0.7) / ts;
         ctx.beginPath();
         ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
@@ -254,7 +261,7 @@ export default function GraphView({ transactions }: { transactions: Transaction[
         const minLabelR = 11 / ts;
         if (r > minLabelR || isHighlighted || isHov) {
           const sz = Math.max(8, Math.min(12, r * 0.6 + (isHighlighted || isHov ? 1.5 : 0)));
-          ctx.fillStyle = `rgba(255,255,255,${alpha * (isHighlighted || isHov ? 0.95 : 0.7)})`;
+          ctx.fillStyle = `${labelColor}${alpha * (isHighlighted || isHov ? 0.95 : 0.7)})`;
           ctx.font = `${sz / ts}px -apple-system, "SF Pro Text", system-ui, sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -373,9 +380,9 @@ export default function GraphView({ transactions }: { transactions: Transaction[
   return (
     <div ref={containerRef} className="relative w-full select-none">
       {transactions.length === 0 && (
-        <div className="absolute inset-0 z-10 flex min-h-[400px] flex-col items-center justify-center gap-3 rounded-xl bg-[#0d0d10] text-center">
-          <div className="text-white/20 text-[13px]">No transactions to graph yet</div>
-          <div className="text-white/12 text-[11px]">Upload a slip to see your spending network</div>
+        <div className="absolute inset-0 z-10 flex min-h-[400px] flex-col items-center justify-center gap-3 rounded-xl bg-[var(--bg-base)] text-center">
+          <div className="text-[var(--muted)]/50 text-[13px]">No transactions to graph yet</div>
+          <div className="text-[var(--muted)]/30 text-[11px]">Upload a slip to see your spending network</div>
         </div>
       )}
       <canvas
@@ -393,9 +400,9 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       />
 
       {/* Top-left: stats badge */}
-      <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg border border-white/[0.09] bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-[11px] text-white/35">
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--panel)]/70 backdrop-blur-md px-2.5 py-1.5 text-[11px] text-[var(--muted)]">
         <span>{nodeCount} nodes</span>
-        <span className="text-white/15">·</span>
+        <span className="text-[var(--muted)]/40">·</span>
         <span>{edgeCount} links</span>
       </div>
 
@@ -410,7 +417,7 @@ export default function GraphView({ transactions }: { transactions: Transaction[
             key={btn.label}
             title={btn.title}
             onClick={btn.action}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/[0.09] bg-black/50 backdrop-blur-md text-[13px] text-white/45 hover:text-white/85 hover:border-white/20 hover:bg-black/70 transition-all duration-150"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--panel)]/70 backdrop-blur-md text-[13px] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--border-hover)] hover:bg-[var(--panel)] transition-all duration-150"
           >
             {btn.label}
           </button>
@@ -420,20 +427,20 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       {/* Hover tooltip */}
       {hoveredNode && (
         <div
-          className="absolute pointer-events-none rounded-xl border border-white/[0.1] bg-black/80 backdrop-blur-xl px-3.5 py-2.5 shadow-2xl"
+          className="absolute pointer-events-none rounded-xl border border-[var(--line)] bg-[var(--panel)]/95 backdrop-blur-xl px-3.5 py-2.5 shadow-2xl"
           style={{ left: tooltipPos.x, top: tooltipPos.y, maxWidth: 210 }}
         >
-          <div className="font-semibold text-white text-[13px] leading-tight">
+          <div className="font-semibold text-[var(--foreground)] text-[13px] leading-tight">
             {hoveredNode.label}
           </div>
-          <div className="mt-0.5 text-white/40 text-[11px]">
+          <div className="mt-0.5 text-[var(--muted)] text-[11px]">
             {hoveredNode.type === "category"
               ? "Category"
               : hoveredNode.type === "merchant"
                 ? "Merchant · Bank"
                 : "Month"}
           </div>
-          <div className="mt-1.5 font-mono text-white/80 text-[12px]">
+          <div className="mt-1.5 font-mono text-[var(--foreground)]/80 text-[12px]">
             ฿{hoveredNode.value.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
           </div>
         </div>
@@ -441,10 +448,10 @@ export default function GraphView({ transactions }: { transactions: Transaction[
 
       {/* Selection info pill */}
       {selectedNode && (
-        <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl border border-white/[0.09] bg-black/75 backdrop-blur-md px-3 py-2 text-xs">
-          <span className="font-medium text-white/85">{filteredCount} transactions</span>
+        <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--panel)]/85 backdrop-blur-md px-3 py-2 text-xs">
+          <span className="font-medium text-[var(--foreground)]">{filteredCount} transactions</span>
           <button
-            className="ml-1 rounded-md px-1.5 py-0.5 text-white/30 hover:text-white/70 hover:bg-white/[0.08] transition-colors text-[11px]"
+            className="ml-1 rounded-md px-1.5 py-0.5 text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)] transition-colors text-[11px]"
             onClick={() => setSelectedNode(null)}
           >
             ✕
@@ -453,11 +460,11 @@ export default function GraphView({ transactions }: { transactions: Transaction[
       )}
 
       {/* Legend + instructions */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-white/25">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-[var(--muted)]/50">
         <LegendDot color="#f97316" label="Category" />
         <LegendDot color="#94a3b8" label="Merchant · Bank" />
         <LegendDot color="#475569" label="Month" />
-        <span className="text-white/15">· Scroll to zoom · Drag to pan · Click to select</span>
+        <span className="text-[var(--muted)]/35">· Scroll to zoom · Drag to pan · Click to select</span>
       </div>
     </div>
   );
