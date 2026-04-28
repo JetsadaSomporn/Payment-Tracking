@@ -509,7 +509,7 @@ function TopBar({ active, ctx, message, onLogin, sidebarOpen, onToggleSidebar }:
 
 function MobileNav({ active }: { active: PaymentTrackerView }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--line)] bg-[var(--panel)]/90 backdrop-blur-2xl lg:hidden safe-bottom-pb">
+    <nav className="fixed inset-x-0 bottom-0 z-[100] w-full border-t border-[var(--line)] bg-[var(--panel)] lg:hidden" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }}>
       <div className="flex justify-around py-1.5">
         {navItems.map((item) => {
           const isActive = item.view === active;

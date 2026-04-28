@@ -29,6 +29,12 @@ export const metadata: Metadata = {
   description: "Track Thai bank slip expenses with a confirmation-first flow.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
