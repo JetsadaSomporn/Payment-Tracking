@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spendly — Every baht. Confirmed.</title>
+<style>
+  :root {
+    --bg: #0A0A0C;
+    --panel: #111114;
+    --elevated: #18181C;
+    --field: #1E1E22;
+    --gold: #D4A853;
+    --gold-dim: rgba(212,168,83,0.08);
+    --gold-glow: rgba(212,168,83,0.18);
+    --cyan: #22D3EE;
+    --text: #F5F5F7;
+    --text2: #A1A1AA;
+    --text3: #6E6E73;
+    --border: rgba(255,255,255,0.055);
+    --border-h: rgba(255,255,255,0.10);
+  }
+  *,::before,::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;background:var(--bg);color:var(--text);font-family:Inter,'Noto Sans Thai',-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  @media(prefers-reduced-motion:reduce){*,::before,::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}}
+  body{overflow-x:hidden;background:var(--bg)}
+
+  /* ── nav ── */
+  #nav{position:fixed;top:0;left:0;right:0;z-index:90;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;transition:background .3s,backdrop-filter .3s}
+  #nav.scrolled{background:rgba(10,10,12,.88);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+  #nav a{text-decoration:none}
+  #nav .logo{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+  #nav .links{display:flex;gap:28px;list-style:none}
+  #nav .links a{font-size:12.5px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;transition:color .18s}
+  #nav .links a:hover{color:var(--gold)}
+  #nav .cta{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;background:var(--gold);color:#0A0A0C;box-shadow:0 2px 12px var(--gold-dim);transition:all .18s}
+  #nav .cta:hover{background:#E0B86A;box-shadow:0 4px 20px var(--gold-glow)}
+  @media(max-width:640px){#nav .links{display:none}#nav{padding:12px 16px}}
+
+  /* ── scroll bar ── */
+  #scroll-bar{position:fixed;top:0;left:0;height:2px;z-index:100;background:linear-gradient(90deg,var(--gold),#E0B86A,var(--gold));width:0%;transition:width 60ms linear}
+
+  /* ── sections ── */
+  section{position:relative;width:100%;overflow:hidden}
+  .sec-inner{position:relative;z-index:2;max-width:1120px;width:100%;margin:0 auto;padding:100px 28px}
+  @media(max-width:640px){.sec-inner{padding:64px 16px}}
+
+  /* ── reveal ── */
+  .rv{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.22,1,.36,1),transform .7s cubic-bezier(.22,1,.36,1)}
+  .rv.on{opacity:1;transform:translateY(0)}
+  .rv1{transition-delay:60ms}.rv2{transition-delay:120ms}.rv3{transition-delay:180ms}
+
+  /* ═══════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════ */
+  #hero{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+  #hero .bg-img{position:absolute;inset:0;z-index:0;object-fit:cover;object-position:center;width:100%;height:100%}
+  #hero .overlay{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.82) 0%,rgba(0,0,0,.68) 40%,rgba(0,0,0,.92) 100%)}
+  #hero .overlay2{position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,.08) 50%,rgba(0,0,0,.7) 100%)}
+  #hero .content{position:relative;z-index:3;text-align:center;max-width:720px;padding:0 20px}
+  #hero .eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:10.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:24px}
+  #hero .eyebrow::before,.eyebrow::after{content:'';width:18px;height:1px;background:var(--gold);opacity:.35}
+  #hero h1{font-size:clamp(2.8rem,7vw,5rem);font-weight:700;line-height:.92;letter-spacing:-.05em;margin-bottom:20px}
+  #hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--gold) 0%,#E0B86A 50%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  #hero .sub{font-size:17px;line-height:1.6;color:var(--text2);max-width:480px;margin:0 auto 36px}
+  #hero .btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn-gold{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:10px;font-size:14.5px;font-weight:600;text-decoration:none;letter-spacing:-.01em;background:var(--gold);color:#0A0A0C;box-shadow:0 4px 24px rgba(212,168,83,.18);transition:all .18s}
+  .btn-gold:hover{background:#E0B86A;box-shadow:0 6px 32px rgba(212,168,83,.28);transform:translateY(-1px)}
+  .btn-ghost{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;border-radius:10px;font-size:14.5px;font-weight:600;text-decoration:none;letter-spacing:-.01em;border:1px solid rgba(255,255,255,.12);color:var(--text);background:transparent;transition:all .18s}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.03)}
+
+  #hero .stats{margin-top:56px;display:flex;flex-wrap:wrap;gap:32px;justify-content:center;border-top:1px solid rgba(255,255,255,.06);padding-top:24px}
+  #hero .stats .s{text-align:center}
+  #hero .stats .sv{font-size:20px;font-weight:600;letter-spacing:-.03em}
+  #hero .stats .sl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+
+  /* ── scroll hint ── */
+  .scrh{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .scrh span{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--text3)}
+  .scrh .line{width:1px;height:36px;background:linear-gradient(180deg,var(--gold),transparent);animation:scrhP 2.2s ease-in-out infinite}
+  @keyframes scrhP{0%,100%{opacity:.35;transform:scaleY(1)}50%{opacity:1;transform:scaleY(1.25)}}
+
+  /* ═══════════════════════════════════════════
+     FLOW
+     ═══════════════════════════════════════════ */
+  #flow{background:var(--bg)}
+  #flow .sec-label{font-size:10.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:16px}
+  #flow h2{font-size:clamp(2rem,4.5vw,3rem);font-weight:700;line-height:1.04;letter-spacing:-.04em;margin-bottom:56px;max-width:600px}
+  #flow .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--border);border-radius:16px;overflow:hidden}
+  @media(max-width:768px){#flow .steps{grid-template-columns:1fr}}
+  #flow .step{background:var(--panel);padding:36px 28px;transition:background .2s}
+  #flow .step:hover{background:var(--elevated)}
+  #flow .step .n{font-size:52px;font-weight:700;line-height:1;letter-spacing:-.04em;background:linear-gradient(180deg,var(--gold),rgba(212,168,83,.12));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:14px}
+  #flow .step h3{font-size:18px;font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+  #flow .step p{font-size:13.5px;line-height:1.65;color:var(--text2)}
+
+  /* ═══════════════════════════════════════════
+     DASHBOARD
+     ═══════════════════════════════════════════ */
+  #dash{background:var(--bg)}
+  #dash .grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+  @media(max-width:900px){#dash .grid{grid-template-columns:1fr;gap:40px}}
+  #dash h2{font-size:clamp(2rem,4.5vw,3rem);font-weight:700;line-height:1.04;letter-spacing:-.03em;margin-bottom:18px}
+  #dash p.desc{font-size:15.5px;line-height:1.7;color:var(--text2);margin-bottom:24px}
+  #dash .feats{display:flex;flex-direction:column;gap:12px}
+  #dash .feat{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;color:var(--text2);line-height:1.5}
+  #dash .feat svg{flex-shrink:0;margin-top:2px;color:var(--gold)}
+  #dash .mock{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:0 24px 80px -12px rgba(0,0,0,.65)}
+  #dash .mock .bar{display:flex;align-items:center;gap:7px;padding:12px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+  #dash .mock .bar .dot{width:10px;height:10px;border-radius:50%}
+  #dash .mock .bar .url{flex:1;text-align:center;font-size:11px;color:var(--text3);font-family:'SF Mono','Roboto Mono',monospace}
+  #dash .mock img{width:100%;display:block}
+  #dash .mock .ph{aspect-ratio:1440/900;display:flex;align-items:center;justify-content:center;background:var(--elevated);color:var(--text3);font-size:13px}
+
+  /* ═══════════════════════════════════════════
+     UPLOAD
+     ═══════════════════════════════════════════ */
+  #upload{background:var(--bg)}
+  #upload .grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+  @media(max-width:900px){#upload .grid{grid-template-columns:1fr;gap:40px}}
+  #upload .grid.reverse .mock{order:-1}
+  @media(max-width:900px){#upload .grid .mock{order:0}}
+  #upload h2{font-size:clamp(2rem,4.5vw,3rem);font-weight:700;line-height:1.04;letter-spacing:-.03em;margin-bottom:18px}
+  #upload p.desc{font-size:15.5px;line-height:1.7;color:var(--text2);margin-bottom:24px}
+  #upload .mock{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:0 24px 80px -12px rgba(0,0,0,.65)}
+  #upload .mock .bar{display:flex;align-items:center;gap:7px;padding:12px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid var(--border)}
+  #upload .mock .bar .dot{width:10px;height:10px;border-radius:50%}
+  #upload .mock .bar .url{flex:1;text-align:center;font-size:11px;color:var(--text3);font-family:'SF Mono','Roboto Mono',monospace}
+  #upload .mock img{width:100%;display:block}
+  #upload .mock .ph{aspect-ratio:1440/900;display:flex;align-items:center;justify-content:center;background:var(--elevated);color:var(--text3);font-size:13px}
+
+  /* ═══════════════════════════════════════════
+     SECURITY
+     ═══════════════════════════════════════════ */
+  #sec{background:var(--bg)}
+  #sec .grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+  @media(max-width:900px){#sec .grid{grid-template-columns:1fr;gap:40px}}
+  #sec h2{font-size:clamp(2rem,4.5vw,3rem);font-weight:700;line-height:1.04;letter-spacing:-.03em;margin-bottom:18px}
+  #sec p.desc{font-size:15.5px;line-height:1.7;color:var(--text2);margin-bottom:24px}
+  #sec .badges{display:flex;flex-wrap:wrap;gap:10px}
+  #sec .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--panel);color:var(--text2)}
+  #sec .badge.accent{border-color:rgba(212,168,83,.2);background:var(--gold-dim);color:var(--gold)}
+  #sec .code-block{background:var(--elevated);border:1px solid var(--border);border-radius:12px;padding:20px;font-family:'SF Mono','Roboto Mono',monospace;font-size:11.5px;line-height:1.8;color:var(--text3)}
+  #sec .code-block .k{color:var(--cyan)}.code-block .v{color:var(--gold)}.code-block .c{color:var(--text3);opacity:.6}
+
+  /* ═══════════════════════════════════════════
+     CTA
+     ═══════════════════════════════════════════ */
+  #cta{min-height:70vh;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--bg)}
+  #cta h2{font-size:clamp(2.2rem,5vw,3.4rem);font-weight:700;line-height:1.04;letter-spacing:-.03em;margin-bottom:16px}
+  #cta p{font-size:16px;color:var(--text2);max-width:440px;margin:0 auto 28px;line-height:1.6}
+
+  /* ── footer ── */
+  footer{background:var(--bg);border-top:1px solid var(--border);padding:28px;text-align:center;font-size:13px;color:var(--text3)}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="scroll-bar"></div>
+
+<nav id="nav">
+  <a href="#" class="logo">Spendly</a>
+  <ul class="links">
+    <li><a href="#flow">Flow</a></li>
+    <li><a href="#dash">Dashboard</a></li>
+    <li><a href="#upload">Upload</a></li>
+    <li><a href="#sec">Security</a></li>
+  </ul>
+  <a class="cta" href="#">Open app</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <img class="bg-img" src="landing-images/hero-field-console.jpg" alt="" aria-hidden="true">
+  <div class="overlay"></div><div class="overlay2"></div>
+  <div class="content">
+    <p class="eyebrow">Thai Bank Slip Tracker</p>
+    <h1>Every baht.<br><em>Confirmed.</em></h1>
+    <p class="sub">อัปโหลดสลิป → AI ดึงข้อมูล → คุณตรวจสอบและกดยืนยัน ไม่มี auto-save ไม่มี guesswork</p>
+    <div class="btns">
+      <a href="#" class="btn-gold">อัปโหลดสลิปแรก</a>
+      <a href="#" class="btn-ghost">ดู Dashboard</a>
+    </div>
+    <div class="stats">
+      <div class="s"><div class="sv">Never</div><div class="sl">auto-saves</div></div>
+      <div class="s"><div class="sv">Confirmed</div><div class="sl">source only</div></div>
+      <div class="s"><div class="sv">Private</div><div class="sl">storage</div></div>
+      <div class="s"><div class="sv">0 guesses</div><div class="sl">in the ledger</div></div>
+    </div>
+  </div>
+  <div class="scrh"><span>Scroll</span><div class="line"></div></div>
+</section>
+
+<!-- ── FLOW ── -->
+<section id="flow">
+  <div class="sec-inner">
+    <p class="sec-label rv">How It Works</p>
+    <h2 class="rv rv1">One action per screen.<br>No shortcuts.</h2>
+    <div class="steps">
+      <div class="step rv rv1">
+        <div class="n">01</div>
+        <h3>อัปโหลดสลิป</h3>
+        <p>วางรูปสลิปธนาคาร — JPG, PNG, WEBP. ไฟล์ถูก validate ก่อนถึง AI route. รองรับสลิปไทยทุกรูปแบบ</p>
+      </div>
+      <div class="step rv rv2">
+        <div class="n">02</div>
+        <h3>AI อ่าน + คุณตรวจสอบ</h3>
+        <p>NVIDIA AI extracts จำนวนเงิน, ธนาคาร, ผู้รับ, เลขอ้างอิง, วันที่. ถ้า confidence ต่ำ — แจ้งเตือนชัดเจน ไม่ซ่อน</p>
+      </div>
+      <div class="step rv rv3">
+        <div class="n">03</div>
+        <h3>คุณยืนยัน → Ledger</h3>
+        <p>คุณคือคนกดปุ่มสุดท้าย. เมื่อ confirm แล้วเท่านั้น รายการถึงจะเข้า ledger. ไม่มีทางลัด</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── DASHBOARD ── -->
+<section id="dash">
+  <div class="sec-inner">
+    <div class="grid">
+      <div>
+        <p class="sec-label rv">The Dashboard</p>
+        <h2 class="rv rv1">See every baht.<br>At a glance.</h2>
+        <p class="desc rv rv1">Today's spending. This week's summary. Category breakdown. ตัวเลขทุกตัวมาจากรายการที่คุณ confirm เท่านั้น ฿0.00 จนกว่าคุณจะกดยืนยัน</p>
+        <div class="feats rv rv2">
+          <div class="feat"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg> Day / Week / Month toggle — Apple-style segmented control</div>
+          <div class="feat"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg> 12 หมวดหมู่: อาหาร, เดินทาง, ช้อปปิ้ง, บิล/บริการ, สุขภาพ, และอื่นๆ</div>
+          <div class="feat"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg> รายรับ / รายจ่าย / โอนเงิน — ทุกประเภทรายการ</div>
+        </div>
+      </div>
+      <div class="mock rv rv2">
+        <div class="bar">
+          <div class="dot" style="background:#FF5F57"></div><div class="dot" style="background:#FFBD2E"></div><div class="dot" style="background:#28CA41"></div>
+          <div class="url">spendly.app/m</div>
+        </div>
+        <img src="product-dashboard.png" alt="Spendly Dashboard" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="ph" style="display:none">product-dashboard.png (place in /public/)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── UPLOAD ── -->
+<section id="upload">
+  <div class="sec-inner">
+    <div class="grid">
+      <div class="mock rv">
+        <div class="bar">
+          <div class="dot" style="background:#FF5F57"></div><div class="dot" style="background:#FFBD2E"></div><div class="dot" style="background:#28CA41"></div>
+          <div class="url">spendly.app/a</div>
+        </div>
+        <img src="product-upload.png" alt="Spendly Upload" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="ph" style="display:none">product-upload.png (place in /public/)</div>
+      </div>
+      <div>
+        <p class="sec-label rv">Upload + Review</p>
+        <h2 class="rv rv1">AI reads the slip.<br>You make the call.</h2>
+        <p class="desc rv rv1">วางสลิป → กด "อ่านสลิป" → AI แสดงผลลัพธ์ทางฝั่งขวาพร้อม confidence score. ถ้าต่ำกว่า 75% — ระบบแจ้งเตือนชัดเจน. คุณแก้ไขและ confirm ก่อน save</p>
+        <div class="feats rv rv2">
+          <div class="feat"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg> เลือกไฟล์ → AI อ่านสลิป → ยืนยันบันทึก — 3 ขั้นตอนชัดเจน</div>
+          <div class="feat"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg> Confidence badge: ≥75% แสดง gold, ต่ำกว่าเตือนด้วย red</div>
+          <div class="feat"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 13l4 4L19 7"/></svg> Manual entry mode — กรอกเองได้ถ้าไม่มีสลิป</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SECURITY ── -->
+<section id="sec">
+  <div class="sec-inner">
+    <div class="grid">
+      <div>
+        <p class="sec-label rv">Trust Layer</p>
+        <h2 class="rv rv1">Trust is a<br>control surface.</h2>
+        <p class="desc rv rv1">ทุกแถวข้อมูลมี cryptographic signature. AES-256-GCM encryption ป้องกันข้อมูล sensitive. RLS-enforced — ข้อมูลคุณ คนอื่นอ่านไม่ได้</p>
+        <div class="badges rv rv2">
+          <span class="badge accent">HMAC-SHA256</span>
+          <span class="badge">AES-256-GCM</span>
+          <span class="badge">RLS</span>
+          <span class="badge">Row-Level Signing</span>
+        </div>
+      </div>
+      <div class="code-block rv rv2">
+        <div style="margin-bottom:10px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Row Integrity</div>
+        <span class="c">-- Every transaction row</span><br>
+        <span class="k">id</span>: <span class="v">a1b2c3d4-e5f6-...</span><br>
+        <span class="k">amount</span>: <span style="color:var(--text)">1,250.00</span><br>
+        <span class="k">bank</span>: <span style="color:var(--text)">กสิกรไทย</span><br>
+        <span class="k">row_signature</span>: <span class="v">HMAC-SHA256</span><br>
+        <span style="display:block;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)"><span class="k">encrypted_fields</span>: <span style="color:var(--cyan)">AES-256-GCM</span></span><br>
+        <span style="display:block;margin-top:4px;color:var(--gold);font-size:11px">✓ Row signature verified</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section id="cta">
+  <div class="sec-inner rv">
+    <h2>Ready to track<br>every baht?</h2>
+    <p>Private storage. Confirmed-only ledger. Built for people who want precision, not guesses.</p>
+    <a href="#" class="btn-gold">Open Spendly →</a>
+  </div>
+</section>
+
+<footer>Spendly — Personal finance. Confirmed.</footer>
+
+<script>
+(function(){
+  // scroll bar
+  const bar=document.getElementById('scroll-bar'),nav=document.getElementById('nav');
+  addEventListener('scroll',()=>{
+    const h=document.documentElement.scrollHeight-innerHeight;
+    bar.style.width=h>0?(scrollY/h*100)+'%':'0%';
+    nav.classList.toggle('scrolled',scrollY>60);
+  },{passive:true});
+
+  // reveal
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('on')}),{threshold:.1});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+  // smooth nav links
+  document.querySelectorAll('#nav a[href^="#"]').forEach(a=>{
+    a.addEventListener('click',e=>{
+      const t=document.querySelector(a.getAttribute('href'));
+      if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth'})}
+    })
+  });
+})();
+</script>
+</body>
+</html>
